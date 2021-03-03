@@ -233,7 +233,12 @@ void Window::createForm()
 	lblVersion.transparent(true);
 	lblVersion.typeface(fontSmall);
 	lblVersion.fgcolor(color_rgb(0xaaaaaa));
-	lblVersion.caption("www.markers.cloud\nVersion 0.0.1");
+
+#ifndef CLOUDMARKER_RELEASE
+	lblVersion.caption("www.markers.cloud\nVersion 0.0.2 DEV");
+#else
+	lblVersion.caption("www.markers.cloud\nVersion 0.0.2");
+#endif
 
 	// Right Column
 
@@ -241,7 +246,7 @@ void Window::createForm()
 	lblMCommentC.transparent(true);
 	lblMCommentC.typeface(fontTitle);
 	lblMCommentC.fgcolor(color_rgb(0x777777));
-	lblMCommentC.caption("COMMENTS");
+	lblMCommentC.caption("DESCRIPTION");
 
 	m_lblMComment = new label(*m_form, rectangle(formWidth / 2, 290, contentWidth, 125), false);
 	m_lblMComment->transparent(true);
