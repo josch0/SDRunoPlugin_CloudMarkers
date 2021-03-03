@@ -1,0 +1,146 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Quelldateien">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Headerdateien">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Ressourcendateien">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Quelldateien\Ui">
+      <UniqueIdentifier>{45a3747c-024f-4819-aebf-3d8880b7bde4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headerdateien\Ui">
+      <UniqueIdentifier>{5dd196c4-92f3-493f-abf3-cc31e5facfa3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headerdateien\Vendor">
+      <UniqueIdentifier>{c151fc72-756b-44b1-9a17-058e2580a746}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Quelldateien\Vendor">
+      <UniqueIdentifier>{c66546c1-0230-4d1f-b293-4845b827c960}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Plugin.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Ui\Window.cpp">
+      <Filter>Quelldateien\Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="entrypoint.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Ui\WindowManager.cpp">
+      <Filter>Quelldateien\Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="DataService.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="AnnotatorService.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Ui\sdrbutton.cpp">
+      <Filter>Quelldateien\Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Vendor\sqlite3.c">
+      <Filter>Quelldateien\Vendor</Filter>
+    </ClCompile>
+    <ClCompile Include="Ui\EditWindow.cpp">
+      <Filter>Quelldateien\Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="RemoteAdapter.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Vendor\Jzon.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Plugin.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\Window.h">
+      <Filter>Headerdateien\Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\WindowManager.h">
+      <Filter>Headerdateien\Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="DataService.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="AnnotatorService.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\sdrbutton.h">
+      <Filter>Headerdateien\Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\httplib.h">
+      <Filter>Headerdateien\Vendor</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\sqlite3.h">
+      <Filter>Headerdateien\Vendor</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\EditWindow.h">
+      <Filter>Headerdateien\Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="RemoteAdapter.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Vendor\Jzon.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="remote_dev.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="remote_prod.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc">
+      <Filter>Ressourcendateien</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\resources\HEADER.dib" />
+    <Image Include="..\resources\MIN_BUT.bmp">
+      <Filter>Ressourcendateien</Filter>
+    </Image>
+    <Image Include="..\resources\MIN_BUT_HIT.bmp">
+      <Filter>Ressourcendateien</Filter>
+    </Image>
+    <Image Include="..\resources\SETT.bmp">
+      <Filter>Ressourcendateien</Filter>
+    </Image>
+    <Image Include="..\resources\SETT_OVER.bmp">
+      <Filter>Ressourcendateien</Filter>
+    </Image>
+    <Image Include="..\resources\sp_blue_back.bmp">
+      <Filter>Ressourcendateien</Filter>
+    </Image>
+    <Image Include="..\resources\winback.bmp">
+      <Filter>Ressourcendateien</Filter>
+    </Image>
+    <Image Include="..\resources\X_BUT.bmp">
+      <Filter>Ressourcendateien</Filter>
+    </Image>
+    <Image Include="..\resources\X_BUT_HIT.bmp">
+      <Filter>Ressourcendateien</Filter>
+    </Image>
+  </ItemGroup>
+</Project>

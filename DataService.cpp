@@ -1,0 +1,479 @@
+#include "DataService.h"
+
+#include "Vendor/sqlite3.h"
+
+#include <Windows.h>
+#include <future>
+#include <iomanip>
+
+
+inline bool operator<(const marker::marker_t& a, const marker::marker_t& b) {
+	return a.frequency != b.frequency || a.name != b.name;
+}
+
+DataService::DataService(IUnoPluginController& controller) :
+	m_controller(controller),
+	m_remoteAdapter(),
+	m_oid(0)
+{
+	HMODULE hModule = GetModuleHandle(L"SDRunoPlugin_CloudMarkers");
+	std::vector<wchar_t> pathBuf;
+	DWORD copied = 0;
+	do {
+		pathBuf.resize(pathBuf.size() + MAX_PATH);
+		copied = GetModuleFileName(hModule, pathBuf.data(), pathBuf.size());
+	} while (copied >= pathBuf.size());
+
+	pathBuf.resize(copied);
+
+	m_pluginPath = std::string(pathBuf.begin(), pathBuf.end() - 29);
+}
+
+DataService::~DataService()
+{
+	sqlite3_close(m_database);
+}
+
+void DataService::Init()
+{
+	if (sqlite3_open((m_pluginPath + "SDRunoPlugin_CloudMarkers.db").c_str(), &m_database) != SQLITE_OK)
+	{
+		return;
+	}
+
+	const char* createMarkersTable =
+		"CREATE TABLE IF NOT EXISTS marker ("
+		"	lid INTEGER PRIMARY KEY,"
+		"	cid INTEGER DEFAULT 0,"
+		"	oid INTEGER NOT NULL,"
+		"	frequency INTEGER NOT NULL,"
+		"	name TEXT NOT NULL,"
+		"   type INTEGER NOT NULL,"
+		"	modulation TEXT,"
+		"   country TEXT,"
+		"	location TEXT,"
+		"	comment TEXT,"
+		"	score INTEGER DEFAULT 0,"
+		"	show NUMERIC DEFAULT 0,"
+		"	vote INTEGER DEFAULT 0"
+		")";
+
+	if (sqlite3_exec(m_database, createMarkersTable, 0, 0, 0) != SQLITE_OK)
+	{
+		return;
+	}
+
+	const char* createConfigTable =
+		"CREATE TABLE IF NOT EXISTS config ("
+		"	key TEXT PRIMARY KEY,"
+		"	value1 TEXT,"
+		"	value2 TEXT,"
+		"	value3 TEXT,"
+		"	value4 TEXT,"
+		"	value5 TEXT"
+		")";
+
+	if (sqlite3_exec(m_database, createConfigTable, 0, 0, 0) != SQLITE_OK)
+	{
+		return;
+	}
+
+	// Get OwnerID
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "SELECT value1 FROM config WHERE key = 'OID';", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		rc = sqlite3_step(statement);
+		if (rc == SQLITE_ROW)
+		{
+			m_oid = sqlite3_column_int(statement, 0);
+		}
+		sqlite3_finalize(statement);
+	}
+
+	if (m_oid == 0) {
+		m_oid = m_remoteAdapter.Register();
+		if (m_oid > 0) {
+			int rc = sqlite3_prepare(m_database, "INSERT OR REPLACE INTO config (key, value1) VALUES ('OID', ?);", -1, &statement, 0);
+			if (rc == SQLITE_OK)
+			{
+				sqlite3_bind_int(statement, 1, m_oid);
+				sqlite3_step(statement);
+				sqlite3_finalize(statement);
+			}
+		}
+	}
+
+	if (m_oid == 0)
+		m_oid = 1000; // 1000 = Anonymous
+}
+
+int DataService::GetMyOid()
+{
+	return m_oid;
+}
+
+
+std::set<marker::marker_t> DataService::GetMarkers(const long long vfoFrequency, const long range, const bool onlyChecked)
+{
+	std::set<marker::marker_t> result;
+	sqlite3_stmt* statement;
+
+	int rc = sqlite3_prepare(m_database, "SELECT * FROM marker WHERE frequency >= ? AND frequency <= ? AND (show == 1 OR show == ?) ORDER BY frequency;", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		sqlite3_bind_int(statement, 1, vfoFrequency - range);
+		sqlite3_bind_int(statement, 2, vfoFrequency + range);
+		sqlite3_bind_int(statement, 3, onlyChecked ? 1 : 0);
+
+		rc = sqlite3_step(statement);
+		while (rc == SQLITE_ROW)
+		{
+			marker::marker_t marker;
+
+			marker.lid = sqlite3_column_int(statement, 0);
+			marker.cid = sqlite3_column_int(statement, 1);
+			marker.oid = sqlite3_column_int(statement, 2);
+			marker.frequency = sqlite3_column_int(statement, 3);
+			marker.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 4)));
+			marker.type = sqlite3_column_int(statement, 5);
+			if (sqlite3_column_bytes(statement, 6) > 0)
+				marker.modulation = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 6)));
+			if (sqlite3_column_bytes(statement, 7) > 0)
+				marker.country = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 7)));
+			if (sqlite3_column_bytes(statement, 8) > 0)
+				marker.location = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 8)));
+			if (sqlite3_column_bytes(statement, 9) > 0)
+				marker.comment = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 9)));
+			marker.score = sqlite3_column_int(statement, 10);
+			marker.show = sqlite3_column_int(statement, 11) != 0;
+			marker.vote = sqlite3_column_int(statement, 12);
+
+			marker.score += marker.vote;
+
+			marker.readOnly = marker.oid < 1000;
+			marker.owner = marker.oid  >= 1000 && marker.oid == m_oid;
+			marker.synced = marker.cid > 0;
+			marker.deleteable = marker.owner && (marker.score < 10 || !marker.synced);
+
+			if (marker.vote < 0)
+				marker.flagsl.append(" (-)");
+
+			if (marker.vote > 0)
+				marker.flagsl.append(" (+)");
+
+			if (marker.synced)
+			{
+				marker.flagsl.append(" shared");
+			}
+			else
+			{
+				marker.flags.append("L");
+				marker.flagsl.append(" local");
+			}
+
+			if (marker.owner)
+			{
+				marker.flags.append("O");
+				marker.flagsl.append(" owner");
+			}			
+
+			if (marker.readOnly)
+			{
+				marker.flags.append("R");
+				marker.flagsl.append(" readonly");
+			}
+
+			result.insert(marker);
+
+			rc = sqlite3_step(statement);
+		}
+		sqlite3_finalize(statement);
+
+	}
+
+	return result;
+}
+
+void DataService::SaveMarkerShow(const marker::marker_t marker)
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "UPDATE marker SET show = ? WHERE lid = ?", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		sqlite3_bind_int(statement, 1, marker.show ? 1 : 0);
+		sqlite3_bind_int(statement, 2, marker.lid);
+		sqlite3_step(statement);
+		sqlite3_finalize(statement);
+	}
+
+	m_dataChangedCallback();
+}
+
+void DataService::SaveMarkerVote(const marker::marker_t marker)
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "UPDATE marker SET vote = ? WHERE lid = ?", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		sqlite3_bind_int(statement, 1, marker.vote);
+		sqlite3_bind_int(statement, 2, marker.lid);
+		sqlite3_step(statement);
+		sqlite3_finalize(statement);
+	}
+
+	if (marker.synced) {
+		m_remoteAdapter.Vote(marker, m_oid);
+	}
+
+	m_dataChangedCallback();
+}
+
+
+void DataService::SaveMarker(marker::marker_t marker, const bool share)
+{
+	if (marker.lid == 0) // INSERT
+	{
+		marker.oid = m_oid;
+		marker.cid = 0;
+
+		if (share) {
+			int cid = m_remoteAdapter.Insert(marker, m_oid);
+			if (cid > 0) {
+				marker.cid = cid;
+			}
+		}
+
+		insertMarker(marker);
+	} 
+	else if (marker.lid > 0 && (marker.cid == 0 || marker.oid >= 1000)) // UPDATE
+	{
+		if (marker.cid == 0 && share) // local -> shared
+		{
+			marker.oid = m_oid;
+
+			int cid = m_remoteAdapter.Insert(marker, m_oid);
+			if (cid > 0) {
+				marker.cid = cid;
+			}
+		}
+		else if (marker.cid > 0 && !share) // shared -> local
+		{
+			marker.cid = 0;
+			marker.score = 0;
+			marker.vote = 0;
+			marker.oid = m_oid;
+		} 
+		else if (marker.cid > 0 && share) // shared update
+		{
+			m_remoteAdapter.Update(marker, m_oid);
+		}
+
+		updateMarker(marker);
+	}
+
+	m_dataChangedCallback();
+}
+
+void DataService::DeleteMarker(marker::marker_t marker)
+{
+	if (marker.lid > 0 && (marker.cid == 0 || marker.score < 10) && marker.oid == m_oid) {
+		if (marker.cid > 0) {
+			m_remoteAdapter.Delete(marker, m_oid);
+		}
+		deleteMarker(marker);
+	}
+
+	m_dataChangedCallback();
+}
+
+void DataService::insertMarker(const marker::marker_t marker)
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "INSERT INTO marker VALUES(NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0);", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		sqlite3_bind_int(statement, 1, marker.cid);
+		sqlite3_bind_int(statement, 2, marker.oid);
+		sqlite3_bind_int(statement, 3, marker.frequency);
+		sqlite3_bind_text(statement, 4, marker.name.c_str(), marker.name.size(), NULL);
+		sqlite3_bind_int(statement, 5, marker.type);
+		sqlite3_bind_text(statement, 6, marker.modulation.c_str(), marker.modulation.size(), NULL);
+		sqlite3_bind_text(statement, 7, marker.country.c_str(), marker.country.size(), NULL);
+		sqlite3_bind_text(statement, 8, marker.location.c_str(), marker.location.size(), NULL);
+		sqlite3_bind_text(statement, 9, marker.comment.c_str(), marker.comment.size(), NULL);
+		sqlite3_step(statement);
+		sqlite3_finalize(statement);
+	}
+}
+
+void DataService::updateMarker(const marker::marker_t marker)
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "UPDATE marker SET cid = ?, oid = ?, frequency = ?, name = ? , type = ? , modulation = ? , country = ? , location = ? , comment = ? , score = ? , vote = ? WHERE lid = ?;", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		sqlite3_bind_int(statement, 1, marker.cid);
+		sqlite3_bind_int(statement, 2, marker.oid);
+		sqlite3_bind_int(statement, 3, marker.frequency);
+		sqlite3_bind_text(statement, 4, marker.name.c_str(), marker.name.size(), NULL);
+		sqlite3_bind_int(statement, 5, marker.type);
+		sqlite3_bind_text(statement, 6, marker.modulation.c_str(), marker.name.size(), NULL);
+		sqlite3_bind_text(statement, 7, marker.country.c_str(), marker.country.size(), NULL);
+		sqlite3_bind_text(statement, 8, marker.location.c_str(), marker.location.size(), NULL);
+		sqlite3_bind_text(statement, 9, marker.comment.c_str(), marker.comment.size(), NULL);
+		sqlite3_bind_int(statement, 10, marker.score);
+		sqlite3_bind_int(statement, 11, marker.vote);
+		sqlite3_bind_int(statement, 12, marker.lid);
+		sqlite3_step(statement);
+		sqlite3_finalize(statement);
+	}
+}
+
+void DataService::insertSyncedMarker(const marker::marker_t marker)
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "INSERT INTO marker VALUES(NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		sqlite3_bind_int(statement, 1, marker.cid);
+		sqlite3_bind_int(statement, 2, marker.oid);
+		sqlite3_bind_int(statement, 3, marker.frequency);
+		sqlite3_bind_text(statement, 4, marker.name.c_str(), marker.name.size(), NULL);
+		sqlite3_bind_int(statement, 5, marker.type);
+		sqlite3_bind_text(statement, 6, marker.modulation.c_str(), marker.modulation.size(), NULL);
+		sqlite3_bind_text(statement, 7, marker.country.c_str(), marker.country.size(), NULL);
+		sqlite3_bind_text(statement, 8, marker.location.c_str(), marker.location.size(), NULL);
+		sqlite3_bind_text(statement, 9, marker.comment.c_str(), marker.comment.size(), NULL);
+		sqlite3_bind_int(statement, 10, marker.score);
+		sqlite3_bind_int(statement, 11, marker.vote);
+		sqlite3_step(statement);
+		sqlite3_finalize(statement);
+	}
+}
+
+void DataService::updateSyncedMarker(const marker::marker_t marker)
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "UPDATE marker SET oid = ?, frequency = ?, name = ? , type = ? , modulation = ? , country = ? , location = ? , comment = ? , score = ? , vote = ? WHERE cid = ?;", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		sqlite3_bind_int(statement, 2, marker.oid);
+		sqlite3_bind_int(statement, 3, marker.frequency);
+		sqlite3_bind_text(statement, 4, marker.name.c_str(), marker.name.size(), NULL);
+		sqlite3_bind_int(statement, 5, marker.type);
+		sqlite3_bind_text(statement, 6, marker.modulation.c_str(), marker.name.size(), NULL);
+		sqlite3_bind_text(statement, 7, marker.country.c_str(), marker.country.size(), NULL);
+		sqlite3_bind_text(statement, 8, marker.location.c_str(), marker.location.size(), NULL);
+		sqlite3_bind_text(statement, 9, marker.comment.c_str(), marker.comment.size(), NULL);
+		sqlite3_bind_int(statement, 10, marker.score);
+		sqlite3_bind_int(statement, 11, marker.vote);
+		sqlite3_bind_int(statement, 12, marker.cid);
+
+		sqlite3_step(statement);
+		sqlite3_finalize(statement);
+	}
+}
+
+void DataService::deleteMarker(const marker::marker_t marker)
+{
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "DELETE FROM marker WHERE lid = ?;", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		sqlite3_bind_int(statement, 1, marker.lid);
+		sqlite3_step(statement);
+		sqlite3_finalize(statement);
+	}
+}
+
+void DataService::RegisterCallback(std::function<void()> callback)
+{
+	m_dataChangedCallback = callback;
+}
+
+sync::syncinfo_t DataService::GetLastSync() {
+	sync::syncinfo_t result = { "0", "0", "Never" };
+
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "SELECT value1, value2, value3 FROM config WHERE key = 'LAST_SYNC';", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		rc = sqlite3_step(statement);
+		if (rc == SQLITE_ROW)
+		{
+			if (sqlite3_column_bytes(statement, 0) > 0)
+				result.commit = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 0)));
+			if (sqlite3_column_bytes(statement, 1) > 0)
+				result.count = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 1)));
+			if (sqlite3_column_bytes(statement, 2) > 0)
+				result.time = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 2)));
+		}
+		sqlite3_finalize(statement);
+	}
+
+	return result;
+}
+
+int DataService::GetMarkerCount()
+{
+	int count = -1;
+
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "SELECT COUNT(*) AS count FROM marker;", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		rc = sqlite3_step(statement);
+		if (rc == SQLITE_ROW)
+		{
+			count = sqlite3_column_int(statement, 0);
+		}
+		sqlite3_finalize(statement);
+	}
+
+	return count;
+}
+
+void DataService::SyncMarkers()
+{
+	auto syncinfo = GetLastSync();
+	int lastCommit = std::stoi(syncinfo.commit);
+
+	std::string commit = syncinfo.commit;
+	std::string count = syncinfo.count;
+	std::string time = sync::currentDateTime();
+
+	auto syncresult = m_remoteAdapter.Get(lastCommit, m_oid);
+
+	if (syncresult.commit > lastCommit && syncresult.items.size() > 0)
+	{
+		commit = std::to_string(syncresult.commit);
+		count = std::to_string(syncresult.items.size());
+
+		for (auto item : syncresult.items)
+		{
+			if (item.action == "DELETE")
+				deleteMarker(item.marker);
+
+			if (item.action == "INSERT" && item.marker.oid != m_oid)
+				insertSyncedMarker(item.marker);
+
+			if (item.action == "UPDATE")
+				updateSyncedMarker(item.marker);
+		}
+	}
+
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "INSERT OR REPLACE INTO config (key, value1, value2, value3) VALUES ('LAST_SYNC', ?, ?, ?);", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+
+		sqlite3_bind_text(statement, 1, commit.c_str(), commit.size(), NULL);
+		sqlite3_bind_text(statement, 2, count.c_str(), count.size(), NULL);
+		sqlite3_bind_text(statement, 3, time.c_str(), time.size(), NULL);
+		sqlite3_step(statement);
+		sqlite3_finalize(statement);
+	}
+
+	m_dataChangedCallback();
+}
