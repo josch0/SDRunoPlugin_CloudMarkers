@@ -7,13 +7,12 @@
 #include <iomanip>
 
 
-inline bool operator<(const marker::marker_t& a, const marker::marker_t& b) {
-	return a.frequency != b.frequency || a.name != b.name;
-}
-
 DataService::DataService(IUnoPluginController& controller) :
 	m_controller(controller),
 	m_remoteAdapter(),
+	m_selectedMarker(),
+	m_typeSettings(),
+	m_vfoOffset(0),
 	m_oid(0)
 {
 	HMODULE hModule = GetModuleHandle(L"SDRunoPlugin_CloudMarkers");
@@ -106,6 +105,18 @@ void DataService::Init()
 
 	if (m_oid == 0)
 		m_oid = 1000; // 1000 = Anonymous
+
+	m_typeSettings[0].hex_color(getConfig("ColorUnknown"), 0xd94545);
+	m_typeSettings[1].hex_color(getConfig("ColorTimesignal"), 0xcccccc);
+	m_typeSettings[2].hex_color(getConfig("ColorMorse"), 0xb12eb3);
+	m_typeSettings[3].hex_color(getConfig("ColorDigimode"), 0xcfaa32);
+	m_typeSettings[4].hex_color(getConfig("ColorVoice"), 0x247fc9);
+	m_typeSettings[5].hex_color(getConfig("ColorBroadcast"), 0x2cb838);
+	m_typeSettings[6].hex_color(getConfig("ColorNoise"), 0x777777);
+	m_typeSettings[7].hex_color(getConfig("ColorNoise"), 0x777777);
+	m_typeSettings[8].hex_color(getConfig("ColorBandmarker"), 0xf0d52b);
+
+	m_vfoOffset = getConfigInt("VfoOffset", 10);
 }
 
 int DataService::GetMyOid()
@@ -434,19 +445,27 @@ int DataService::GetMarkerCount()
 	return count;
 }
 
-void DataService::SyncMarkers()
+void DataService::SyncMarkers(std::function<void(bool download, int progress) > progressHandler)
 {
 	auto syncinfo = GetLastSync();
 	int lastCommit = std::stoi(syncinfo.commit);
 
 	std::string commit = syncinfo.commit;
-	std::string count = syncinfo.count;
+	std::string count = "0";
 	std::string time = sync::currentDateTime();
 
-	auto syncresult = m_remoteAdapter.Get(lastCommit, m_oid);
+	auto syncresult = m_remoteAdapter.Get(lastCommit, m_oid, [&](uint64_t c, uint64_t t) {
+		progressHandler(true, c * 100 / t);
+		return true;
+	});
+
+	progressHandler(true, 100);
 
 	if (syncresult.commit > lastCommit && syncresult.items.size() > 0)
 	{
+		int t = syncresult.items.size();
+		int c = 0;
+
 		commit = std::to_string(syncresult.commit);
 		count = std::to_string(syncresult.items.size());
 
@@ -460,8 +479,12 @@ void DataService::SyncMarkers()
 
 			if (item.action == "UPDATE")
 				updateSyncedMarker(item.marker);
+
+			progressHandler(false, ++c * 100 / t);
 		}
 	}
+
+	progressHandler(false, 100);
 
 	sqlite3_stmt* statement;
 	int rc = sqlite3_prepare(m_database, "INSERT OR REPLACE INTO config (key, value1, value2, value3) VALUES ('LAST_SYNC', ?, ?, ?);", -1, &statement, 0);
@@ -476,4 +499,90 @@ void DataService::SyncMarkers()
 	}
 
 	m_dataChangedCallback();
+}
+
+void DataService::setSelectedMarker(marker::marker_t marker)
+{
+	m_selectedMarker = marker;
+}
+marker::marker_t DataService::getSelectedMarker()
+{
+	return m_selectedMarker;
+}
+
+std::string DataService::getConfig(std::string key)
+{
+	std::string value;
+	m_controller.GetConfigurationKey("CloudMarker." + key, value);
+	return value;
+}
+
+void DataService::setConfig(std::string key, std::string value)
+{
+	m_controller.SetConfigurationKey("CloudMarker." + key, value);
+}
+
+int DataService::getConfigInt(std::string key, int defaultValue)
+{
+	try {
+		return std::stoi(getConfig(key));
+	}
+	catch(...)
+	{
+		return defaultValue;
+	}
+}
+void DataService::setConfigInt(std::string key, int value)
+{
+	setConfig(key, std::to_string(value));
+}
+
+settings::types_t DataService::GetTypeSettings()
+{
+	return m_typeSettings;
+}
+
+void DataService::SetTypeSettings(settings::types_t types)
+{
+	m_typeSettings = types;
+
+	setConfig("ColorUnknown", m_typeSettings[0].hex_color());
+	setConfig("ColorTimesignal", m_typeSettings[1].hex_color());
+	setConfig("ColorMorse", m_typeSettings[2].hex_color());
+	setConfig("ColorDigimode", m_typeSettings[3].hex_color());
+	setConfig("ColorVoice", m_typeSettings[4].hex_color());
+	setConfig("ColorBroadcast", m_typeSettings[5].hex_color());
+	setConfig("ColorNoise", m_typeSettings[6].hex_color());
+	setConfig("ColorBandmarker", m_typeSettings[8].hex_color());
+
+	m_dataChangedCallback();
+}
+
+void DataService::SaveWindowPos(channel_t channel, nana::point point)
+{
+	setConfigInt("Window" + std::to_string(channel) + "PosX", point.x);
+	setConfigInt("Window" + std::to_string(channel) + "PosY", point.y);
+}
+
+nana::point DataService::LoadWindowPos(channel_t channel)
+{
+	int x = getConfigInt("Window" + std::to_string(channel) + "PosX", -1);
+	int y = getConfigInt("Window" + std::to_string(channel) + "PosY", -1);
+	return nana::point(x, y);
+}
+
+int DataService::GetVfoOffset() {
+	return m_vfoOffset;
+}
+
+void DataService::SetVfoOffset(int offset) {
+	if (offset >= 10 && offset <= 500) {
+		m_vfoOffset = offset;
+		setConfigInt("VfoOffset", offset);
+		m_dataChangedCallback();
+	}
+}
+
+bool DataService::UpdateAvailable() {
+	return version::version != m_remoteAdapter.GetNewestVersion();
 }

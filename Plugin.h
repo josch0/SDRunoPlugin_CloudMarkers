@@ -17,6 +17,7 @@ public:
 	const char* GetPluginName() const { return "CloudMarkers"; }
 	void HandleEvent(const UnoEvent& event);
 	void DataChangedCallback();
+	void CloseCallback();
 
 private:
 	AnnotatorService m_annotatorService;

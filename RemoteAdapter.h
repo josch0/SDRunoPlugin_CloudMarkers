@@ -11,7 +11,9 @@ public:
 	bool Delete(marker::marker_t marker, int oid);
 	bool Vote(const marker::marker_t marker, int oid);
 
-	sync::syncresult_t Get(int afterCommit, int oid);
+	std::string GetNewestVersion();
+
+	sync::syncresult_t Get(int afterCommit, int oid, std::function<bool(uint64_t current, uint64_t total)> progress);
 
 private:
 	std::string markerToJson(marker::marker_t marker);

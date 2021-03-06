@@ -121,7 +121,20 @@ bool RemoteAdapter::Vote(const marker::marker_t marker, const int oid)
 	}
 }
 
-sync::syncresult_t RemoteAdapter::Get(int afterCommit, int oid)
+std::string RemoteAdapter::GetNewestVersion() {
+	std::string remoteUrl = std::string("/version.txt");
+
+	httplib::Client remoteClient(remote::server, 80);
+	httplib::Result result = remoteClient.Get(remoteUrl.c_str());
+	if (result.error() == httplib::Error::Success) {
+		if (result->status == 200 && !result->body.empty())
+			return result->body;
+	}
+
+	return "ERR";
+}
+
+sync::syncresult_t RemoteAdapter::Get(int afterCommit, int oid, std::function<bool(uint64_t current, uint64_t total)> progress)
 {
 	std::string remoteUrl = std::string("/get.php")
 		.append("?token=").append(remote::token)
@@ -129,7 +142,7 @@ sync::syncresult_t RemoteAdapter::Get(int afterCommit, int oid)
 		.append("&commit=").append(std::to_string(afterCommit));
 
 	httplib::Client remoteClient(remote::server, 80);
-	httplib::Result result = remoteClient.Get(remoteUrl.c_str());
+	httplib::Result result = remoteClient.Get(remoteUrl.c_str(), progress);
 	
 	if (result.error() == httplib::Error::Success) {
 		if (result->status == 200) {

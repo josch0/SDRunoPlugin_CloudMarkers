@@ -12,6 +12,8 @@ Plugin::Plugin(IUnoPluginController& controller) :
 	m_dataService.Init();
 
 	m_annotatorService.UpdateMarkers();
+	
+	m_windowManager.RegisterCallback(std::bind(&Plugin::CloseCallback, this));
 	m_windowManager.UpdateVrxCount();
 
 	m_controller.RegisterAnnotator(&m_annotatorService);
@@ -40,6 +42,10 @@ void Plugin::HandleEvent(const UnoEvent& event)
 	}
 }
 
+void Plugin::CloseCallback()
+{
+	m_controller.RequestUnload(this);
+}
 
 void Plugin::DataChangedCallback()
 {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nana/gui.hpp>
+#include <iomanip>
 
 #ifdef CLOUDMARKER_RELEASE
 	#include "remote_prod.h"
@@ -8,6 +9,60 @@
 	#include "remote_dev.h"
 #endif // CLOUDMARKER_PROD
 
+namespace version {
+	const std::string const version = "0.1.0";
+}
+
+namespace settings {
+	struct type_t {
+		std::string name;
+		int color;
+
+		bool hex_color(std::string value, int defaulColor = 0) {
+			color = defaulColor;
+
+			if (value.empty() || value.length() != 7 || value[0] != '#')
+				return false;
+
+			int c;
+			try {
+				c = std::stoi(value.substr(1), nullptr, 16);
+			}
+			catch(...) {
+				return false;
+			}
+
+			if (c < 0x000000 || c > 0xFFFFFF)
+				return false;
+
+			color = c;
+			return true;
+		}
+
+		std::string hex_color() {
+			std::stringstream stream;
+			stream << "#" << std::uppercase << std::setfill('0') << std::setw(6) << std::hex << color;
+			return stream.str();
+		}
+	};
+
+	class types_t : public std::vector<type_t> {
+	public:
+		types_t() : std::vector<type_t>{
+			{ "Unknown", 0xd94545 },
+			{ "Timesignal", 0xcccccc },
+			{ "Morse", 0xb12eb3 },
+			{ "Digimode", 0xcfaa32 },
+			{ "Voice", 0x247fc9 },
+			{ "Broadcast", 0x2cb838 },
+			{ "Noise", 0x777777 },
+			{ "Carrier", 0x777777 },
+			{ "Bandmarker", 0xf0d52b }}
+		{
+		}		
+	};
+
+}
 
 namespace marker {
 
@@ -43,11 +98,6 @@ namespace marker {
 	{
 		return lhs.lid < rhs.lid;
 	}
-
-	// 0=Unknown, 1=Time Signal, 2=Morse, 3=DigiMode, 4=Voice, 5=Broadcast, 6=SingleCarrier, 7=Noise
-	const int type_colors[] = { 0xd94545, 0xcccccc, 0xb12eb3 , 0xcfaa32, 0x247fc9, 0x2cb838, 0x777777, 0x777777, 0xf0d52b };
-
-	const char* const type_names[] = { "Unknown", "Timesignal", "Morse", "Digimode", "Voice", "Broadcast", "Carrier", "Noise", "Bandmarker" };
 
 	struct dotted : std::numpunct<char> {
 		char do_thousands_sep()   const { return '.'; }  // separate with dots
@@ -90,7 +140,7 @@ namespace sync {
 		char       buf[80];
 		tstruct = *localtime(&now);
 
-		strftime(buf, sizeof(buf), "%Y-%m-%d %X", &tstruct);
+		strftime(buf, sizeof(buf), "%y-%m-%d %X", &tstruct);
 
 		return std::string(buf);
 	}

@@ -172,7 +172,10 @@
     <ClCompile Include="RemoteAdapter.cpp" />
     <ClCompile Include="Ui\EditWindow.cpp" />
     <ClCompile Include="Ui\sdrbutton.cpp" />
-    <ClCompile Include="Ui\Window.cpp" />
+    <ClCompile Include="Ui\sdrwindow.cpp" />
+    <ClCompile Include="Ui\SettingsWindow.cpp" />
+    <ClCompile Include="Ui\SyncWindow.cpp" />
+    <ClCompile Include="Ui\MainWindow.cpp" />
     <ClCompile Include="Ui\WindowManager.cpp" />
     <ClCompile Include="Vendor\Jzon.cpp" />
     <ClCompile Include="Vendor\sqlite3.c" />
@@ -188,7 +191,10 @@
     <ClInclude Include="DataService.h" />
     <ClInclude Include="Ui\EditWindow.h" />
     <ClInclude Include="Ui\sdrbutton.h" />
-    <ClInclude Include="Ui\Window.h" />
+    <ClInclude Include="Ui\sdrwindow.h" />
+    <ClInclude Include="Ui\SettingsWindow.h" />
+    <ClInclude Include="Ui\SyncWindow.h" />
+    <ClInclude Include="Ui\MainWindow.h" />
     <ClInclude Include="Ui\WindowManager.h" />
     <ClInclude Include="Vendor\httplib.h" />
     <ClInclude Include="Vendor\Jzon.h" />

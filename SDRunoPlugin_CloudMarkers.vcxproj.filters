@@ -33,9 +33,6 @@
     <ClCompile Include="Plugin.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
-    <ClCompile Include="Ui\Window.cpp">
-      <Filter>Quelldateien\Ui</Filter>
-    </ClCompile>
     <ClCompile Include="entrypoint.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
@@ -63,13 +60,22 @@
     <ClCompile Include="Vendor\Jzon.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
+    <ClCompile Include="Ui\SyncWindow.cpp">
+      <Filter>Quelldateien\Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Ui\sdrwindow.cpp">
+      <Filter>Quelldateien\Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Ui\SettingsWindow.cpp">
+      <Filter>Quelldateien\Ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Ui\MainWindow.cpp">
+      <Filter>Quelldateien\Ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Plugin.h">
       <Filter>Headerdateien</Filter>
-    </ClInclude>
-    <ClInclude Include="Ui\Window.h">
-      <Filter>Headerdateien\Ui</Filter>
     </ClInclude>
     <ClInclude Include="Ui\WindowManager.h">
       <Filter>Headerdateien\Ui</Filter>
@@ -109,6 +115,18 @@
     </ClInclude>
     <ClInclude Include="remote_prod.h">
       <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\sdrwindow.h">
+      <Filter>Headerdateien\Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\SettingsWindow.h">
+      <Filter>Headerdateien\Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\SyncWindow.h">
+      <Filter>Headerdateien\Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\MainWindow.h">
+      <Filter>Headerdateien\Ui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
