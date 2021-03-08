@@ -22,6 +22,7 @@ private:
 	void createWidgets();
 	void colorError(std::string name);
 	bool validColorKey(int size, wchar_t key);
+	bool validLocator(int size, wchar_t key);
 
 	std::unique_ptr<nana::label> m_lblColor0C;
 	std::unique_ptr<nana::label> m_lblColor1C;
@@ -44,6 +45,8 @@ private:
 	std::unique_ptr<nana::label> m_lblOffset;
 	std::unique_ptr<nana::spinbox> m_spnOffset;
 
+	std::unique_ptr<nana::label> m_lblQthC;
+	std::unique_ptr<nana::textbox> m_txtQth0;
 
 	std::unique_ptr<nana::sdrbutton> m_btnSave;
 	std::unique_ptr<nana::sdrbutton> m_btnCancel;

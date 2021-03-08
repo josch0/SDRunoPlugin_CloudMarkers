@@ -72,6 +72,9 @@
     <ClCompile Include="Ui\MainWindow.cpp">
       <Filter>Quelldateien\Ui</Filter>
     </ClCompile>
+    <ClCompile Include="Ui\CountryWindow.cpp">
+      <Filter>Quelldateien\Ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Plugin.h">
@@ -127,6 +130,12 @@
     </ClInclude>
     <ClInclude Include="Ui\MainWindow.h">
       <Filter>Headerdateien\Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="Ui\CountryWindow.h">
+      <Filter>Headerdateien\Ui</Filter>
+    </ClInclude>
+    <ClInclude Include="countries.h">
+      <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

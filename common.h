@@ -10,7 +10,7 @@
 #endif // CLOUDMARKER_PROD
 
 namespace version {
-	const std::string const version = "0.1.0";
+	const std::string const version = "0.2.0";
 }
 
 namespace settings {
@@ -99,19 +99,15 @@ namespace marker {
 		return lhs.lid < rhs.lid;
 	}
 
-	struct dotted : std::numpunct<char> {
-		char do_thousands_sep()   const { return '.'; }  // separate with dots
-		std::string do_grouping() const { return "\3"; } // groups of 3 digits
-		static void imbue(std::ostream& os) {
-			os.imbue(std::locale(os.getloc(), new dotted));
-		}
-	};
-	
 	inline std::string format_frequency(long long frequency) {
-		std::stringstream ss;
-		dotted::imbue(ss);
-		ss << frequency;
-		return ss.str();
+		std::string value = std::to_string(frequency);
+		int len = value.size();
+
+		for(int pos = 9; pos >= 3; pos -= 3)
+			if (len > pos)
+				value.insert(value.end() - pos, '.');
+
+		return value;
 	}
 
 
@@ -143,5 +139,12 @@ namespace sync {
 		strftime(buf, sizeof(buf), "%y-%m-%d %X", &tstruct);
 
 		return std::string(buf);
+	}
+}
+
+namespace util {
+	inline std::string& uppercase(std::string& value) {
+		for (auto& c : value) c = toupper(c);
+		return value;
 	}
 }

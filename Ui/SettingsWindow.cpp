@@ -3,8 +3,11 @@
 
 #include "SettingsWindow.h"
 
+#define WIDTH (567)
+#define HEIGHT (470)
+
 SettingsWindow::SettingsWindow(nana::form* parent, DataService& dataService) :
-	sdrwindow(parent, "SETTINGS", 567, 440, dataService)
+	sdrwindow(parent, "SETTINGS", WIDTH, HEIGHT, dataService)
 {
 }
 
@@ -48,10 +51,17 @@ void SettingsWindow::createWidgets()
 	m_txtColor8 = makeTextbox(q4, r2t, qw, 20, false, "");
 
 	// ### ROW 2
+	
+	// VFO Offset
 	m_lblOffset = makeLabelTitle(q1, r3, qw, "MARKER VFO OFFSET (kHz)");
 	m_spnOffset = makeSpinbox(q1, r3t, qw, 20);
 	m_spnOffset->range(10, 500, 10);
 
+	// QTH
+	m_lblQthC = makeLabelTitle(q2, r3, qw, "QTH LOCATOR");
+	m_txtQth0 = makeTextbox(q2, r3t, qw, 20, false, "Maidenhead Loc.");
+
+	// Validation
 	m_txtColor0->set_accept([&](wchar_t key) {	return validColorKey(m_txtColor0->caption().size(), key);});
 	m_txtColor1->set_accept([&](wchar_t key) {	return validColorKey(m_txtColor1->caption().size(), key);});
 	m_txtColor2->set_accept([&](wchar_t key) {	return validColorKey(m_txtColor2->caption().size(), key);});
@@ -60,6 +70,7 @@ void SettingsWindow::createWidgets()
 	m_txtColor5->set_accept([&](wchar_t key) {	return validColorKey(m_txtColor5->caption().size(), key);});
 	m_txtColor6->set_accept([&](wchar_t key) {	return validColorKey(m_txtColor6->caption().size(), key);});
 	m_txtColor8->set_accept([&](wchar_t key) {	return validColorKey(m_txtColor8->caption().size(), key);});
+	m_txtQth0->set_accept([&](wchar_t key) {	return validLocator(m_txtQth0->caption().size(), key);});
 
 	// Set current values
 	m_types = m_dataService.GetTypeSettings();
@@ -72,12 +83,12 @@ void SettingsWindow::createWidgets()
 	m_txtColor5->caption(m_types[5].hex_color());
 	m_txtColor6->caption(m_types[6].hex_color());
 	m_txtColor8->caption(m_types[8].hex_color());
-
 	m_spnOffset->value(std::to_string(m_dataService.GetVfoOffset()));
+	m_txtQth0->caption(m_dataService.GetQTH());
 
 	// ### BUTTONS
-	m_btnSave = makeButton(20, 400, "SAVE", "Save Marker");
-	m_btnCancel = makeButton(84, 400, "CANCEL", "Cancel editing");
+	m_btnSave = makeButton(20, 430, "SAVE", "Save Marker");
+	m_btnCancel = makeButton(84, 430, "CANCEL", "Cancel editing");
 
 	m_btnSave->events().click([&] {
 		if (!m_types[0].hex_color(m_txtColor0->caption())) {
@@ -112,9 +123,19 @@ void SettingsWindow::createWidgets()
 			colorError(m_types[7].name);
 			return;
 		}
-		m_dataService.SetTypeSettings(m_types);
+		
+		if (!m_txtQth0->caption().empty() && m_txtQth0->caption().size() != 6) {
+			nana::msgbox msgbox(*m_form, "Save settings");
+			msgbox << "The QTH locator \"" << m_txtQth0->caption() << "\" is incorrect!";
+			msgbox.icon(nana::msgbox::icon_error);
+			msgbox();
+			return;
+		}
 
+		// Save
+		m_dataService.SetTypeSettings(m_types);
 		m_dataService.SetVfoOffset(std::stoi(m_spnOffset->value()));
+		m_dataService.SetQTH(m_txtQth0->caption());
 
 		Close();
 	});
@@ -138,6 +159,22 @@ bool SettingsWindow::validColorKey(int size, wchar_t key)
 		return true;
 
 	if (size < 7 && ((key >= '0' && key <= '9') || (key >= 'a' && key <= 'f') || (key >= 'A' && key <= 'F')))
+		return true;
+
+	return false;
+}
+
+bool SettingsWindow::validLocator(int size, wchar_t key) {
+	if (key == 0x7F || key == 0x08)
+		return true;
+
+	if (size > 5)
+		return false;
+
+	if ((size < 2 || size > 3) && ((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z')))
+		return true;
+
+	if ((size > 1 && size < 4) && (key >= '0' && key <= '9'))
 		return true;
 
 	return false;

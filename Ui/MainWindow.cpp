@@ -6,7 +6,7 @@
 #include "SyncWindow.h"
 
 MainWindow::MainWindow(channel_t channel, DataService& dataService) :
-	sdrwindow("MARKERS", 567, 470, dataService),
+	sdrwindow("MARKERS" , 567, 470, dataService),
 	m_channel(channel),
 	m_selectedMarker()
 {
@@ -46,6 +46,8 @@ MainWindow::~MainWindow()
 void MainWindow::createWidgets()
 {
 	using namespace nana;
+
+	showVrxNo(m_channel);
 
 	m_lblFreq = new label(*m_form, rectangle(150, 40, m_width - 170, 20));
 	m_lblFreq->transparent(true);
@@ -180,17 +182,14 @@ void MainWindow::createWidgets()
 
 	m_btnSync->events().click([&] {
 		SyncWindow syncWindow(m_form, m_dataService);
-		syncWindow.Run();
+		syncWindow.Show();
 
 		updateSyncInfo();
 	});
 
 	m_btnEdit->events().click([&] {
-		m_dataService.SaveWindowPos(m_channel, m_form->pos());
-
-
 		EditWindow editWindow(m_form, m_dataService, m_selectedMarker);
-		editWindow.Run();
+		editWindow.Show();
 
 		updateSyncInfo();
 	});
@@ -209,7 +208,7 @@ void MainWindow::createWidgets()
 		newMarker.deleteable = false;
 
 		EditWindow editWindow(m_form, m_dataService, newMarker);
-		editWindow.Run();
+		editWindow.Show();
 
 		updateSyncInfo();
 	});
@@ -253,9 +252,9 @@ void MainWindow::createWidgets()
 	});
 
 	m_lstMarker->events().dbl_click([&]() {
-		if (isWindowReady()) {
+		if (isWindowReady() && !m_selectedMarker.readOnly) {
 			EditWindow editWindow(m_form, m_dataService, m_selectedMarker);
-			editWindow.Run();
+			editWindow.Show();
 		}
 	});
 
@@ -263,7 +262,7 @@ void MainWindow::createWidgets()
 
 	if (m_dataService.UpdateAvailable()) {
 		msgbox msgbox(*m_form, "CloudMarkers Plugin");
-		msgbox << "A new version of this plugin is available! Please update!";
+		msgbox << "A new version of this plugin is available!" << std::endl << "Please update from http://markers.cloud!";
 		msgbox.icon(msgbox::icon_information);
 		msgbox();
 	}
@@ -335,7 +334,7 @@ void MainWindow::UpdateWindow(const long long vfoFrequency)
 	auto types = m_dataService.GetTypeSettings();
 	auto offset = m_dataService.GetVfoOffset() * 1000;
 
-	m_lblFreq->caption("VRX" + std::to_string(m_channel) + ": " + marker::format_frequency(vfoFrequency) + " Hz");
+	m_lblFreq->caption("VFO: " + marker::format_frequency(vfoFrequency) + " Hz");
 	
 	m_lstMarker->auto_draw(false);
 	m_lstMarker->clear();

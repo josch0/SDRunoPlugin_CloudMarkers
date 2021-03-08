@@ -106,6 +106,19 @@ void DataService::Init()
 	if (m_oid == 0)
 		m_oid = 1000; // 1000 = Anonymous
 
+	// Get QTH
+	rc = sqlite3_prepare(m_database, "SELECT value1 FROM config WHERE key = 'QTH';", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		rc = sqlite3_step(statement);
+		if (rc == SQLITE_ROW)
+		{
+			if (sqlite3_column_bytes(statement, 0) > 0)
+				m_qth = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 0)));
+		}
+		sqlite3_finalize(statement);
+	}
+
 	m_typeSettings[0].hex_color(getConfig("ColorUnknown"), 0xd94545);
 	m_typeSettings[1].hex_color(getConfig("ColorTimesignal"), 0xcccccc);
 	m_typeSettings[2].hex_color(getConfig("ColorMorse"), 0xb12eb3);
@@ -586,3 +599,23 @@ void DataService::SetVfoOffset(int offset) {
 bool DataService::UpdateAvailable() {
 	return version::version != m_remoteAdapter.GetNewestVersion();
 }
+
+std::string DataService::GetQTH()
+{
+	return m_qth;
+}
+
+void DataService::SetQTH(std::string qth)
+{
+	m_qth = util::uppercase(qth);
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "INSERT OR REPLACE INTO config (key, value1) VALUES ('QTH', ?);", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+
+		sqlite3_bind_text(statement, 1, m_qth.c_str(), m_qth.size(), NULL);
+		sqlite3_step(statement);
+		sqlite3_finalize(statement);
+	}
+}
+

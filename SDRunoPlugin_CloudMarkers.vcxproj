@@ -173,6 +173,7 @@
     <ClCompile Include="Ui\EditWindow.cpp" />
     <ClCompile Include="Ui\sdrbutton.cpp" />
     <ClCompile Include="Ui\sdrwindow.cpp" />
+    <ClCompile Include="Ui\CountryWindow.cpp" />
     <ClCompile Include="Ui\SettingsWindow.cpp" />
     <ClCompile Include="Ui\SyncWindow.cpp" />
     <ClCompile Include="Ui\MainWindow.cpp" />
@@ -183,6 +184,7 @@
   <ItemGroup>
     <ClInclude Include="AnnotatorService.h" />
     <ClInclude Include="common.h" />
+    <ClInclude Include="countries.h" />
     <ClInclude Include="remote_dev.h" />
     <ClInclude Include="remote_prod.h" />
     <ClInclude Include="Plugin.h" />
@@ -192,6 +194,7 @@
     <ClInclude Include="Ui\EditWindow.h" />
     <ClInclude Include="Ui\sdrbutton.h" />
     <ClInclude Include="Ui\sdrwindow.h" />
+    <ClInclude Include="Ui\CountryWindow.h" />
     <ClInclude Include="Ui\SettingsWindow.h" />
     <ClInclude Include="Ui\SyncWindow.h" />
     <ClInclude Include="Ui\MainWindow.h" />

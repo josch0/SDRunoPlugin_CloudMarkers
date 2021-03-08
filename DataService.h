@@ -41,11 +41,15 @@ public:
 	int GetVfoOffset();
 	void SetVfoOffset(int offset);
 
+	std::string GetQTH();
+	void SetQTH(std::string qth);
+
 	bool UpdateAvailable();
 
 private:
 	int m_oid;
 	int m_vfoOffset;
+	std::string m_qth;
 	marker::marker_t m_selectedMarker;
 	settings::types_t m_typeSettings;
 	std::function<void()> m_dataChangedCallback;

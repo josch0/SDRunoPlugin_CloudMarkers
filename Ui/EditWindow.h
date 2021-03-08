@@ -20,8 +20,9 @@ private:
 	marker::marker_t m_marker;
 
 	void createWidgets();
+	std::string spotted(std::string qth, std::string note);
 
-	std::unique_ptr<nana::label> m_lblFreq;
+	std::unique_ptr<nana::label> m_lblFreqC;
 	std::unique_ptr<nana::label> m_lblNameC;
 	std::unique_ptr<nana::label> m_lblTypeC;
 	std::unique_ptr<nana::label> m_lblModulationC;
@@ -30,6 +31,7 @@ private:
 	std::unique_ptr<nana::label> m_lblCommentC;
 	std::unique_ptr<nana::label> m_lblSharedC;
 
+	std::unique_ptr<nana::textbox> m_txtFreq;
 	std::unique_ptr<nana::textbox> m_txtName;
 	std::unique_ptr<nana::textbox> m_txtModulation;
 	std::unique_ptr<nana::textbox> m_txtCountry;
@@ -42,6 +44,20 @@ private:
 	std::unique_ptr<nana::checkbox> m_chkLocal;
 		
 	std::unique_ptr<nana::radio_group> m_grpSync;
+
+	std::unique_ptr<nana::sdrbutton> m_btnFreqP10;
+	std::unique_ptr<nana::sdrbutton> m_btnFreqM10;
+	std::unique_ptr<nana::sdrbutton> m_btnFreqP1;
+	std::unique_ptr<nana::sdrbutton> m_btnFreqM1;
+	std::unique_ptr<nana::sdrbutton> m_btnFreqP01;
+	std::unique_ptr<nana::sdrbutton> m_btnFreqM01;
+	std::unique_ptr<nana::sdrbutton> m_btnFreqP001;
+	std::unique_ptr<nana::sdrbutton> m_btnFreqM001;
+	std::unique_ptr<nana::sdrbutton> m_btnFreqR0;
+	std::unique_ptr<nana::sdrbutton> m_btnFreqR5;
+
+	std::unique_ptr<nana::sdrbutton> m_btnSearch;
+	std::unique_ptr<nana::sdrbutton> m_btnSpot;
 
 	std::unique_ptr<nana::sdrbutton> m_btnSave;
 	std::unique_ptr<nana::sdrbutton> m_btnCancel;

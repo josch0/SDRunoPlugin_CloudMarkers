@@ -36,7 +36,7 @@ void WindowManager::UpdateVrxCount()
 	{
 		channel_t channel = m_windowList.size();
 		auto window = new MainWindow(channel, m_dataService);
-		auto thread = new std::thread(&MainWindow::Run, window);
+		auto thread = new std::thread([&]{ window->Show(); });
 
 		window->RegisterCallback([&] {
 			m_closeCallback();

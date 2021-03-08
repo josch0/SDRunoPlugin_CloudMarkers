@@ -51,7 +51,12 @@ void sdrwindow::Close() {
 	m_form->close();
 }
 
-void sdrwindow::Run()
+void sdrwindow::Show()
+{
+	Show({ 0, 0 });
+}
+
+void sdrwindow::Show(nana::point point)
 {
 	HMODULE hModule = GetModuleHandle(L"SDRunoPlugin_CloudMarkers");
 	HDC hdc = GetDC(NULL);
@@ -82,7 +87,7 @@ void sdrwindow::Run()
 
 	if (m_modal) {
 		m_form = new form(*m_parent, size(m_width, m_height), appearance(false, false, true, false, false, false, false));
-		m_form->move(nana::point(0, 0));
+		m_form->move(point);
 		m_form->caption(m_caption);
 		m_form->show();
 	}
@@ -152,7 +157,7 @@ void sdrwindow::Run()
 		m_picSettIcon->events().mouse_up([&] {
 			m_picSettIcon->load(settImage, nana::rectangle(0, 0, 40, 15));
 			SettingsWindow settingsWindow{ m_form, m_dataService };
-			settingsWindow.Run();
+			settingsWindow.Show();
 		});
 	}
 
@@ -174,9 +179,9 @@ void sdrwindow::Run()
 	}
 }
 
-std::unique_ptr<nana::label> sdrwindow::makeLabelLarge(int x, int y, int w, int h)
+std::unique_ptr<nana::label> sdrwindow::makeLabelLarge(int x, int y, int w)
 {
-	auto label = std::unique_ptr<nana::label>(new nana::label(*m_form, nana::rectangle(x, y, w, h)));
+	auto label = std::unique_ptr<nana::label>(new nana::label(*m_form, nana::rectangle(x, y, w, 20)));
 	label->transparent(true);
 	label->typeface(m_fontLarge);
 	label->fgcolor(nana::colors::white);
@@ -206,7 +211,7 @@ std::unique_ptr<nana::textbox> sdrwindow::makeTextbox(int x, int y, int w, int h
 {
 	auto textbox = std::unique_ptr<nana::textbox>(new nana::textbox(*m_form, nana::rectangle(x, y, w, h)));
 	textbox->fgcolor(nana::colors::white);
-	textbox->bgcolor(nana::color_rgb(0x1D3C4C));
+	textbox->bgcolor(nana::color_rgb(0x1F3F50));
 	textbox->typeface(multiline ? m_fontSmall : m_fontNormal);
 	textbox->multi_lines(multiline);
 	textbox->tip_string(placeholder);
@@ -220,7 +225,7 @@ std::unique_ptr<nana::spinbox> sdrwindow::makeSpinbox(int x, int y, int w, int h
 {
 	auto spinbox = std::unique_ptr<nana::spinbox>(new nana::spinbox(*m_form, nana::rectangle(x, y, w, h)));
 	spinbox->fgcolor(nana::colors::white);
-	spinbox->bgcolor(nana::color_rgb(0x1D3C4C));
+	spinbox->bgcolor(nana::color_rgb(0x1F3F50));
 	spinbox->typeface(m_fontNormal);
 	spinbox->editable(false);
 
@@ -234,10 +239,10 @@ std::unique_ptr<nana::combox> sdrwindow::makeCombox(int x, int y, int w, int h)
 	auto combox = std::unique_ptr<nana::combox>(new nana::combox(*m_form, nana::rectangle(x, y, w, h)));
 	combox->typeface(m_fontNormal);
 	combox->editable(false);
-	
+
 	nana::API::effects_edge_nimbus(*combox, nana::effects::edge_nimbus::none);
 	
-		return combox;
+	return combox;
 }
 
 std::unique_ptr<nana::checkbox> sdrwindow::makeRadio(int x, int y, int w, int h, std::string caption)
@@ -255,13 +260,40 @@ std::unique_ptr<nana::radio_group> sdrwindow::makeRadioGroup()
 	return std::unique_ptr<nana::radio_group>(new nana::radio_group);
 }
 
-std::unique_ptr<nana::sdrbutton> sdrwindow::makeButton(int x, int y, std::string caption, std::string tooltip)
+std::unique_ptr<nana::sdrbutton> sdrwindow::makeButton(int x, int y, int w, std::string caption, std::string tooltip)
 {
-	auto button = std::unique_ptr<nana::sdrbutton>(new nana::sdrbutton(*m_form, nana::point(x, y), 54));
+	auto button = std::unique_ptr<nana::sdrbutton>(new nana::sdrbutton(*m_form, nana::point(x, y), w));
 	button->caption(caption);
 	button->tooltip(tooltip);
 	button->typeface(m_fontTitle);
 	return button;
+}
+
+std::unique_ptr<nana::listbox> sdrwindow::makeListbox(int x, int y, int w, int h)
+{
+	auto listbox = std::unique_ptr<nana::listbox>(new nana::listbox(*m_form, nana::rectangle(x, y, w, h)));
+	listbox->borderless(true);
+	listbox->fgcolor(nana::colors::white);
+	listbox->bgcolor(nana::color_rgb(0x1F3F50));
+	listbox->typeface(m_fontSmall);
+	listbox->sortable(false);
+	listbox->checkable(false);
+	listbox->column_movable(false);
+	listbox->column_resizable(false);
+	listbox->scheme().header_bgcolor = nana::color_rgb(0xFFFFFF);
+	listbox->scheme().header_grabbed = nana::color_rgb(0xFFFFFF);
+	listbox->scheme().header_floated = nana::color_rgb(0xFFFFFF);
+	listbox->scheme().item_highlighted = nana::color_rgb(0x3B7999);
+	listbox->scheme().item_selected = nana::color_rgb(0x2C5B72);
+	listbox->scheme().selection_box = nana::color_rgb(0x3B7999);
+	listbox->scheme().header_splitter_area_after = 0;
+	listbox->scheme().header_splitter_area_before = 0;
+	return listbox;
+}
+
+std::unique_ptr<nana::sdrbutton> sdrwindow::makeButton(int x, int y, std::string caption, std::string tooltip)
+{
+	return makeButton(x, y, 54, caption, tooltip);
 }
 
 std::unique_ptr<nana::progress> sdrwindow::makeProgress(int x, int y, int w, int h)
@@ -275,3 +307,15 @@ void sdrwindow::RegisterCallback(std::function<void()> callback)
 {
 	m_closeCallback = callback;
 }
+
+void sdrwindow::showVrxNo(channel_t channel)
+{
+	m_vrxLabel = std::unique_ptr<nana::label>(new nana::label(*m_form, nana::rectangle(m_width - 110, 5, 50, 20)));
+	m_vrxLabel->typeface(m_fontVrx);
+	m_vrxLabel->fgcolor(nana::color_rgb(0x00d1d1));
+	m_vrxLabel->bgcolor(nana::colors::black);
+	m_vrxLabel->text_align(nana::align::center, nana::align_v::top);
+	m_vrxLabel->caption("0-" + ((channel < 10 ? "0" : "") + std::to_string(channel)));
+
+}
+
