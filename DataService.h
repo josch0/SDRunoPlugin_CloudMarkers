@@ -35,6 +35,9 @@ public:
 	settings::types_t GetTypeSettings();
 	void SetTypeSettings(settings::types_t types);
 
+	int GetDblClickSetting();
+	void SetDblClickSetting(int mode);
+
 	void SaveWindowPos(channel_t channel, nana::point point);
 	nana::point LoadWindowPos(channel_t channel);
 
@@ -44,11 +47,16 @@ public:
 	std::string GetQTH();
 	void SetQTH(std::string qth);
 
+	void Tune(channel_t channel, marker::marker_t marker);
+
 	bool UpdateAvailable();
+
+	void ReSync();
 
 private:
 	int m_oid;
 	int m_vfoOffset;
+	int m_dblClickSetting;
 	std::string m_qth;
 	marker::marker_t m_selectedMarker;
 	settings::types_t m_typeSettings;
@@ -58,6 +66,8 @@ private:
 	std::string m_pluginPath;
 	IUnoPluginController& m_controller;
 	RemoteAdapter m_remoteAdapter;
+
+	void prepareDatabase();
 
 	void insertMarker(const marker::marker_t marker);
 	void updateMarker(const marker::marker_t marker);

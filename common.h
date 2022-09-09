@@ -3,14 +3,13 @@
 #include <nana/gui.hpp>
 #include <iomanip>
 
-#ifdef CLOUDMARKER_RELEASE
-	#include "remote_prod.h"
-#else
-	#include "remote_dev.h"
-#endif // CLOUDMARKER_PROD
+namespace remote {
+	const char* const server = "cloudmarkers.josch0.dev";
+	const char* const token = "fd3852f0950c99e7919b6ae6d35f9ee13822ae97";
+}
 
 namespace version {
-	const std::string const version = "0.2.0";
+	const std::string const version = "0.4.0";
 }
 
 namespace settings {
@@ -92,11 +91,14 @@ namespace marker {
 		bool synced;
 		std::string flags;
 		std::string flagsl;
+		int tune_modulation;
+		int tune_bandwidth;
+		bool tune_centered;
 	};
 
 	inline bool operator<(const marker_t& lhs, const marker_t& rhs)
 	{
-		return lhs.lid < rhs.lid;
+		return lhs.frequency < rhs.frequency || (lhs.frequency == rhs.frequency && lhs.lid < rhs.lid);
 	}
 
 	inline std::string format_frequency(long long frequency) {

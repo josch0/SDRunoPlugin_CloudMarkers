@@ -3,10 +3,13 @@
 #include "Vendor/httplib.h"
 #include "Vendor/Jzon.h"
 
+#define API_VERSION "2"
+
 int RemoteAdapter::Register()
 {
 	std::string remoteUrl = std::string("/register.php")
-		.append("?token=").append(remote::token);
+		.append("?version=").append(API_VERSION)
+		.append("&token=").append(remote::token);
 
 	httplib::Client remoteClient(remote::server, 80);
 	httplib::Result result = remoteClient.Post(
@@ -27,7 +30,8 @@ int RemoteAdapter::Register()
 int RemoteAdapter::Insert(marker::marker_t marker, int oid)
 {
 	std::string remoteUrl = std::string("/insert.php")
-		.append("?token=").append(remote::token)
+		.append("?version=").append(API_VERSION)
+		.append("&token=").append(remote::token)
 		.append("&oid=").append(std::to_string(oid));
 
 	httplib::Client remoteClient(remote::server, 80);
@@ -51,7 +55,8 @@ int RemoteAdapter::Insert(marker::marker_t marker, int oid)
 bool RemoteAdapter::Update(marker::marker_t marker, int oid)
 {
 	std::string remoteUrl = std::string("/update.php")
-		.append("?token=").append(remote::token)
+		.append("?version=").append(API_VERSION)
+		.append("&token=").append(remote::token)
 		.append("&oid=").append(std::to_string(oid))
 		.append("&cid=").append(std::to_string(marker.cid));
 	
@@ -76,7 +81,8 @@ bool RemoteAdapter::Update(marker::marker_t marker, int oid)
 bool RemoteAdapter::Delete(marker::marker_t marker, int oid)
 {
 	std::string remoteUrl = std::string("/delete.php")
-		.append("?token=").append(remote::token)
+		.append("?version=").append(API_VERSION)
+		.append("&token=").append(remote::token)
 		.append("&oid=").append(std::to_string(oid))
 		.append("&cid=").append(std::to_string(marker.cid));
 
@@ -99,7 +105,8 @@ bool RemoteAdapter::Delete(marker::marker_t marker, int oid)
 bool RemoteAdapter::Vote(const marker::marker_t marker, const int oid)
 {
 	std::string remoteUrl = std::string("/vote.php")
-		.append("?token=").append(remote::token)
+		.append("?version=").append(API_VERSION)
+		.append("&token=").append(remote::token)
 		.append("&oid=").append(std::to_string(oid))
 		.append("&cid=").append(std::to_string(marker.cid));
 
@@ -137,7 +144,8 @@ std::string RemoteAdapter::GetNewestVersion() {
 sync::syncresult_t RemoteAdapter::Get(int afterCommit, int oid, std::function<bool(uint64_t current, uint64_t total)> progress)
 {
 	std::string remoteUrl = std::string("/get.php")
-		.append("?token=").append(remote::token)
+		.append("?version=").append(API_VERSION)
+		.append("&token=").append(remote::token)
 		.append("&oid=").append(std::to_string(oid))
 		.append("&commit=").append(std::to_string(afterCommit));
 
@@ -177,7 +185,7 @@ sync::syncresult_t RemoteAdapter::Get(int afterCommit, int oid, std::function<bo
 								syncitem.marker = marker;
 							}
 
-							if ((syncitem.action == "INSERT" || syncitem.action == "UPDATE") && item.getCount() == 12) {
+							if ((syncitem.action == "INSERT" || syncitem.action == "UPDATE") && item.getCount() == 15) {
 								marker::marker_t marker;
 
 								if (item.get(1).isNumber())
@@ -185,7 +193,7 @@ sync::syncresult_t RemoteAdapter::Get(int afterCommit, int oid, std::function<bo
 								if (item.get(2).isNumber())
 									marker.oid = item.get(2).toInt();
 								if (item.get(3).isNumber())
-									marker.frequency = item.get(3).toInt();
+									marker.frequency = static_cast<long long>(item.get(3).toDouble());
 								if (item.get(4).isString())
 									marker.name = item.get(4).toString();
 								if (item.get(5).isNumber())
@@ -202,7 +210,14 @@ sync::syncresult_t RemoteAdapter::Get(int afterCommit, int oid, std::function<bo
 									marker.score = item.get(10).toInt();
 								if (item.get(11).isNumber())
 									marker.vote = item.get(11).toInt();
-
+								// -- Version 2
+								if (item.get(12).isNumber())
+									marker.tune_modulation = item.get(12).toInt();
+								if (item.get(13).isNumber())
+									marker.tune_bandwidth = item.get(13).toInt();
+								if (item.get(14).isBool())
+									marker.tune_centered = item.get(14).toBool();
+								// --
 								syncitem.marker = marker;
 							}
 
@@ -233,6 +248,12 @@ std::string RemoteAdapter::markerToJson(marker::marker_t marker) {
 	array.add(marker.country);
 	array.add(marker.location);
 	array.add(marker.comment);
+
+	// -- Version 2
+	array.add(marker.tune_modulation);
+	array.add(marker.tune_bandwidth);
+	array.add(marker.tune_centered);
+	//--
 
 	Jzon::Writer stringWriter;
 	stringWriter.writeString(array, result);

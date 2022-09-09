@@ -4,6 +4,7 @@
 #include <nana/gui/widgets/label.hpp>
 #include <nana/gui/widgets/textbox.hpp>
 #include <nana/gui/widgets/spinbox.hpp>
+#include <nana/gui/widgets/combox.hpp>
 
 #include "../DataService.h"
 #include "../common.h"
@@ -48,7 +49,11 @@ private:
 	std::unique_ptr<nana::label> m_lblQthC;
 	std::unique_ptr<nana::textbox> m_txtQth0;
 
+	std::unique_ptr<nana::label> m_lblDblClickModeC;
+	std::unique_ptr<nana::combox> m_cmbDblClickMode;
+
 	std::unique_ptr<nana::sdrbutton> m_btnSave;
 	std::unique_ptr<nana::sdrbutton> m_btnCancel;
+	std::unique_ptr<nana::sdrbutton> m_btnResync;
 };
 

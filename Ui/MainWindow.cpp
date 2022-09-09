@@ -5,6 +5,18 @@
 #include "EditWindow.h"
 #include "SyncWindow.h"
 
+#define WIDTH (567)
+#define HEIGHT (470)
+
+#define TEXTHEIGHT (24)
+#define FULLWIDTH (WIDTH - 40)
+#define HALFWIDTH (FULLWIDTH / 2 - 6)
+#define LEFT (20)
+#define RIGHT (WIDTH / 2 + 6)
+#define ROW(x) (40 + ((x - 1) * 45))
+#define TEXTROW(x) (52 + ((x - 1) * 45))
+
+
 MainWindow::MainWindow(channel_t channel, DataService& dataService) :
 	sdrwindow("MARKERS" , 567, 470, dataService),
 	m_channel(channel),
@@ -19,35 +31,21 @@ void MainWindow::BeforeClose()
 
 MainWindow::~MainWindow()
 {
-	delete m_lblFreq;
-	delete m_lblSynced;
-	delete m_lblVersion;
-
-	delete m_lblMNameC;
-	delete m_lblMProtocolC;
-	delete m_lblMLocationC;
-	delete m_lblMFlagsC;
-	delete m_lblMCommentC;
-
-	delete m_lblMName;
-	delete m_lblMProtocol;
-	delete m_lblMLocation;
-	delete m_lblMlags;
-	delete m_lblMComment;
-
-	delete m_lstMarker;
-
-	delete m_btnEdit;
-	delete m_btnVote;
-	delete m_btnAdd;
-	delete m_btnSync;
 }
 
 void MainWindow::createWidgets()
 {
+	int contentWidth = m_width - 40;
+
 	using namespace nana;
 
 	showVrxNo(m_channel);
+
+	m_lblUrl = new label(*m_form, rectangle(65, 10, 160, 10));
+	m_lblUrl->transparent(true);
+	m_lblUrl->typeface(m_fontTitle);
+	m_lblUrl->fgcolor(color_rgb(0xAAAAAA));
+	m_lblUrl->caption("CloudMarkers V"+ version::version);
 
 	m_lblFreq = new label(*m_form, rectangle(150, 40, m_width - 170, 20));
 	m_lblFreq->transparent(true);
@@ -62,9 +60,9 @@ void MainWindow::createWidgets()
 	m_lstMarker->typeface(m_fontSmall);
 	m_lstMarker->sortable(false);
 	m_lstMarker->checkable(true);
-	m_lstMarker->append_header("FREQUENCY", 110);
-	m_lstMarker->append_header("NAME", 180);
-	m_lstMarker->append_header("MODULATION", 90);
+	m_lstMarker->append_header("FREQUENCY ", 120);
+	m_lstMarker->append_header("NAME", 170);
+	m_lstMarker->append_header("MODE/PROT.", 90);
 	m_lstMarker->append_header("COUNTRY", 68);
 	m_lstMarker->append_header("FLAGS", 50);
 
@@ -78,6 +76,8 @@ void MainWindow::createWidgets()
 	m_lstMarker->scheme().selection_box = color_rgb(0x3B7999);
 	m_lstMarker->scheme().header_splitter_area_after = 0;
 	m_lstMarker->scheme().header_splitter_area_before = 0;
+
+	m_lstMarker->column_at(0).text_align(align::right);
 		
 	m_btnAdd = new sdrbutton( *m_form, point(20, 44), 54 );
 	m_btnAdd->caption("ADD");
@@ -97,7 +97,6 @@ void MainWindow::createWidgets()
 	updateSyncInfo();
 
 	// Marker Info
-	int contentWidth = m_width - 40;
 
 	// Left Column
 
@@ -158,27 +157,27 @@ void MainWindow::createWidgets()
 	m_btnVote->typeface(m_fontTitle);
 	m_btnVote->enabled(false);
 
-	m_lblVersion = new label(*m_form, rectangle(150, 425, contentWidth / 2 - 5 - 150, 26));
-	m_lblVersion->transparent(true);
-	m_lblVersion->typeface(m_fontSmall);
-	m_lblVersion->fgcolor(color_rgb(0xaaaaaa));
-	m_lblVersion->text_align(nana::align::right);
-	m_lblVersion->caption("www.markers.cloud\nv" + version::version);
-
 	// Right Column
 
-	m_lblMCommentC = new label(*m_form, rectangle(m_width / 2, 280, contentWidth, 10));
+	m_lblMCommentC = new label(*m_form, rectangle(m_width / 2, 280, contentWidth / 2 - 5, 10));
 	m_lblMCommentC->transparent(true);
 	m_lblMCommentC->typeface(m_fontTitle);
 	m_lblMCommentC->fgcolor(color_rgb(0x777777));
 	m_lblMCommentC->caption("DESCRIPTION");
 
-	m_lblMComment = new label(*m_form, rectangle(m_width / 2, 290, contentWidth, 125), false);
+	m_lblMComment = new label(*m_form, rectangle(m_width / 2, 290, contentWidth / 2 - 5, 156), false);
 	m_lblMComment->transparent(true);
 	m_lblMComment->typeface(m_fontSmall);
 	m_lblMComment->fgcolor(colors::white);
 
+	// Bottom Buttons
+	m_btnTune = makeButton(RIGHT - 12 - 54, 430, "TUNE", "Set VFO frequency to marker");
+	m_btnTune->enabled(false);
+
 	// Events
+	m_btnTune->events().click([&] {
+		m_dataService.Tune(m_channel, m_selectedMarker);
+	});
 
 	m_btnSync->events().click([&] {
 		SyncWindow syncWindow(m_form, m_dataService);
@@ -252,9 +251,16 @@ void MainWindow::createWidgets()
 	});
 
 	m_lstMarker->events().dbl_click([&]() {
-		if (isWindowReady() && !m_selectedMarker.readOnly) {
-			EditWindow editWindow(m_form, m_dataService, m_selectedMarker);
-			editWindow.Show();
+		if (m_selectedMarker.lid > 0) {
+			if (m_dataService.GetDblClickSetting() == 0) {
+				if (isWindowReady() && !m_selectedMarker.readOnly) {
+					EditWindow editWindow(m_form, m_dataService, m_selectedMarker);
+					editWindow.Show();
+				}
+			}
+			if (m_dataService.GetDblClickSetting() == 1) {
+				m_dataService.Tune(m_channel, m_selectedMarker);
+			}
 		}
 	});
 
@@ -262,7 +268,7 @@ void MainWindow::createWidgets()
 
 	if (m_dataService.UpdateAvailable()) {
 		msgbox msgbox(*m_form, "CloudMarkers Plugin");
-		msgbox << "A new version of this plugin is available!" << std::endl << "Please update from http://markers.cloud!";
+		msgbox << "A new version of this plugin is available!" << std::endl << "Please update!";
 		msgbox.icon(msgbox::icon_information);
 		msgbox();
 	}
@@ -303,6 +309,8 @@ void MainWindow::updateMarkerInfo() {
 		
 		if (!m_selectedMarker.owner && m_selectedMarker.synced)
 			m_btnVote->enabled(true);
+
+		m_btnTune->enabled(true);
 	}
 	else
 	{
@@ -314,6 +322,7 @@ void MainWindow::updateMarkerInfo() {
 
 		m_btnEdit->enabled(false);
 		m_btnVote->enabled(false);
+		m_btnTune->enabled(false);
 	}
 }
 
@@ -346,7 +355,7 @@ void MainWindow::UpdateWindow(const long long vfoFrequency)
 		item.fgcolor(nana::color_rgb(types[marker.type].color));
 
 		if (m_selectedMarker.lid == marker.lid) {
-			item.select(true);
+			item.select(true, true);
 			m_selectedMarker = marker;
 		}
 	}
@@ -358,5 +367,6 @@ void MainWindow::UpdateWindow(const long long vfoFrequency)
 	}
 
 	updateMarkerInfo();
+	updateSyncInfo();
 	setWindowReady(true);
 }

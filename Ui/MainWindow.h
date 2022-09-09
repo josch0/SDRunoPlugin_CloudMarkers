@@ -31,7 +31,7 @@ private:
 
 	nana::label* m_lblFreq;
 	nana::label* m_lblSynced;
-	nana::label* m_lblVersion;
+	nana::label* m_lblUrl;
 
 	nana::label* m_lblMNameC;
 	nana::label* m_lblMProtocolC;
@@ -51,4 +51,6 @@ private:
 	nana::sdrbutton* m_btnVote;
 	nana::sdrbutton* m_btnAdd;
 	nana::sdrbutton* m_btnSync;
+
+	std::unique_ptr<nana::sdrbutton> m_btnTune;
 };

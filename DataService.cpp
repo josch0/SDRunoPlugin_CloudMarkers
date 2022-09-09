@@ -33,8 +33,9 @@ DataService::~DataService()
 	sqlite3_close(m_database);
 }
 
-void DataService::Init()
+void DataService::prepareDatabase()
 {
+
 	if (sqlite3_open((m_pluginPath + "SDRunoPlugin_CloudMarkers.db").c_str(), &m_database) != SQLITE_OK)
 	{
 		return;
@@ -76,6 +77,47 @@ void DataService::Init()
 	{
 		return;
 	}
+
+	// Get DB Version
+	int dbversion = 1;
+
+	sqlite3_stmt* statement;
+	int rc = sqlite3_prepare(m_database, "SELECT value1 FROM config WHERE key = 'DB_VERSION';", -1, &statement, 0);
+	if (rc == SQLITE_OK)
+	{
+		rc = sqlite3_step(statement);
+		if (rc == SQLITE_ROW)
+		{
+			dbversion = sqlite3_column_int(statement, 0);
+		}
+		sqlite3_finalize(statement);
+	}
+
+	if (dbversion < 2) { // Update to db version 2
+		sqlite3_exec(m_database, "BEGIN TRANSACTION;", 0, 0, 0);
+		sqlite3_exec(m_database, "ALTER TABLE marker ADD COLUMN tune_modulation INTEGER DEFAULT 0;", 0, 0, 0);
+		sqlite3_exec(m_database, "ALTER TABLE marker ADD COLUMN tune_bandwidth INTEGER DEFAULT 0;", 0, 0, 0);
+		sqlite3_exec(m_database, "ALTER TABLE marker ADD COLUMN tune_centered INTEGER DEFAULT 0;", 0, 0, 0);
+		sqlite3_exec(m_database, "INSERT OR REPLACE INTO config(key, value1) VALUES('DB_VERSION', 2 );", 0, 0, 0);
+		sqlite3_exec(m_database, "DELETE FROM marker WHERE cid > 0;", 0, 0, 0);
+		sqlite3_exec(m_database, "DELETE FROM config WHERE key = 'LAST_SYNC';", 0, 0, 0);
+		sqlite3_exec(m_database, "END TRANSACTION;", 0, 0, 0);
+	}
+}
+
+void DataService::ReSync()
+{
+	sqlite3_exec(m_database, "BEGIN TRANSACTION;", 0, 0, 0);
+	sqlite3_exec(m_database, "DELETE FROM marker WHERE cid > 0;", 0, 0, 0);
+	sqlite3_exec(m_database, "DELETE FROM config WHERE key = 'LAST_SYNC';", 0, 0, 0);
+	sqlite3_exec(m_database, "END TRANSACTION;", 0, 0, 0);
+
+	m_dataChangedCallback();
+}
+
+void DataService::Init()
+{
+	prepareDatabase();
 
 	// Get OwnerID
 	sqlite3_stmt* statement;
@@ -130,6 +172,8 @@ void DataService::Init()
 	m_typeSettings[8].hex_color(getConfig("ColorBandmarker"), 0xf0d52b);
 
 	m_vfoOffset = getConfigInt("VfoOffset", 10);
+
+	m_dblClickSetting = getConfigInt("DblClickMode", 0);
 }
 
 int DataService::GetMyOid()
@@ -158,7 +202,7 @@ std::set<marker::marker_t> DataService::GetMarkers(const long long vfoFrequency,
 			marker.lid = sqlite3_column_int(statement, 0);
 			marker.cid = sqlite3_column_int(statement, 1);
 			marker.oid = sqlite3_column_int(statement, 2);
-			marker.frequency = sqlite3_column_int(statement, 3);
+			marker.frequency = sqlite3_column_int64(statement, 3);
 			marker.name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 4)));
 			marker.type = sqlite3_column_int(statement, 5);
 			if (sqlite3_column_bytes(statement, 6) > 0)
@@ -172,6 +216,12 @@ std::set<marker::marker_t> DataService::GetMarkers(const long long vfoFrequency,
 			marker.score = sqlite3_column_int(statement, 10);
 			marker.show = sqlite3_column_int(statement, 11) != 0;
 			marker.vote = sqlite3_column_int(statement, 12);
+			
+			// -- Version 2
+			marker.tune_modulation = sqlite3_column_int(statement, 13);
+			marker.tune_bandwidth = sqlite3_column_int(statement, 14);
+			marker.tune_centered = sqlite3_column_int(statement, 15) != 0;
+			// --
 
 			marker.score += marker.vote;
 
@@ -314,18 +364,23 @@ void DataService::DeleteMarker(marker::marker_t marker)
 void DataService::insertMarker(const marker::marker_t marker)
 {
 	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare(m_database, "INSERT INTO marker VALUES(NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0);", -1, &statement, 0);
+	int rc = sqlite3_prepare(m_database, "INSERT INTO marker VALUES(NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?);", -1, &statement, 0);
 	if (rc == SQLITE_OK)
 	{
 		sqlite3_bind_int(statement, 1, marker.cid);
 		sqlite3_bind_int(statement, 2, marker.oid);
-		sqlite3_bind_int(statement, 3, marker.frequency);
+		sqlite3_bind_int64(statement, 3, marker.frequency);
 		sqlite3_bind_text(statement, 4, marker.name.c_str(), marker.name.size(), NULL);
 		sqlite3_bind_int(statement, 5, marker.type);
 		sqlite3_bind_text(statement, 6, marker.modulation.c_str(), marker.modulation.size(), NULL);
 		sqlite3_bind_text(statement, 7, marker.country.c_str(), marker.country.size(), NULL);
 		sqlite3_bind_text(statement, 8, marker.location.c_str(), marker.location.size(), NULL);
 		sqlite3_bind_text(statement, 9, marker.comment.c_str(), marker.comment.size(), NULL);
+		// -- Version 2
+		sqlite3_bind_int(statement, 10, marker.tune_modulation);
+		sqlite3_bind_int(statement, 11, marker.tune_bandwidth);
+		sqlite3_bind_int(statement, 12, marker.tune_centered ? 1 : 0);
+		// --
 		sqlite3_step(statement);
 		sqlite3_finalize(statement);
 	}
@@ -334,12 +389,12 @@ void DataService::insertMarker(const marker::marker_t marker)
 void DataService::updateMarker(const marker::marker_t marker)
 {
 	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare(m_database, "UPDATE marker SET cid = ?, oid = ?, frequency = ?, name = ? , type = ? , modulation = ? , country = ? , location = ? , comment = ? , score = ? , vote = ? WHERE lid = ?;", -1, &statement, 0);
+	int rc = sqlite3_prepare(m_database, "UPDATE marker SET cid = ?, oid = ?, frequency = ?, name = ? , type = ? , modulation = ? , country = ? , location = ? , comment = ? , score = ? , vote = ?, tune_modulation = ?, tune_bandwidth = ?, tune_centered = ? WHERE lid = ?;", -1, &statement, 0);
 	if (rc == SQLITE_OK)
 	{
 		sqlite3_bind_int(statement, 1, marker.cid);
 		sqlite3_bind_int(statement, 2, marker.oid);
-		sqlite3_bind_int(statement, 3, marker.frequency);
+		sqlite3_bind_int64(statement, 3, marker.frequency);
 		sqlite3_bind_text(statement, 4, marker.name.c_str(), marker.name.size(), NULL);
 		sqlite3_bind_int(statement, 5, marker.type);
 		sqlite3_bind_text(statement, 6, marker.modulation.c_str(), marker.name.size(), NULL);
@@ -348,7 +403,13 @@ void DataService::updateMarker(const marker::marker_t marker)
 		sqlite3_bind_text(statement, 9, marker.comment.c_str(), marker.comment.size(), NULL);
 		sqlite3_bind_int(statement, 10, marker.score);
 		sqlite3_bind_int(statement, 11, marker.vote);
-		sqlite3_bind_int(statement, 12, marker.lid);
+		// -- Version 2
+		sqlite3_bind_int(statement, 12, marker.tune_modulation);
+		sqlite3_bind_int(statement, 13, marker.tune_bandwidth);
+		sqlite3_bind_int(statement, 14, marker.tune_centered ? 1 : 0);
+		// --
+		sqlite3_bind_int(statement, 15, marker.lid);
+
 		sqlite3_step(statement);
 		sqlite3_finalize(statement);
 	}
@@ -357,12 +418,12 @@ void DataService::updateMarker(const marker::marker_t marker)
 void DataService::insertSyncedMarker(const marker::marker_t marker)
 {
 	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare(m_database, "INSERT INTO marker VALUES(NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);", -1, &statement, 0);
+	int rc = sqlite3_prepare(m_database, "INSERT INTO marker VALUES(NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?);", -1, &statement, 0);
 	if (rc == SQLITE_OK)
 	{
 		sqlite3_bind_int(statement, 1, marker.cid);
 		sqlite3_bind_int(statement, 2, marker.oid);
-		sqlite3_bind_int(statement, 3, marker.frequency);
+		sqlite3_bind_int64(statement, 3, marker.frequency);
 		sqlite3_bind_text(statement, 4, marker.name.c_str(), marker.name.size(), NULL);
 		sqlite3_bind_int(statement, 5, marker.type);
 		sqlite3_bind_text(statement, 6, marker.modulation.c_str(), marker.modulation.size(), NULL);
@@ -371,6 +432,11 @@ void DataService::insertSyncedMarker(const marker::marker_t marker)
 		sqlite3_bind_text(statement, 9, marker.comment.c_str(), marker.comment.size(), NULL);
 		sqlite3_bind_int(statement, 10, marker.score);
 		sqlite3_bind_int(statement, 11, marker.vote);
+		// -- Version 2
+		sqlite3_bind_int(statement, 12, marker.tune_modulation);
+		sqlite3_bind_int(statement, 13, marker.tune_bandwidth);
+		sqlite3_bind_int(statement, 14, marker.tune_centered ? 1 : 0);
+		// --
 		sqlite3_step(statement);
 		sqlite3_finalize(statement);
 	}
@@ -379,20 +445,25 @@ void DataService::insertSyncedMarker(const marker::marker_t marker)
 void DataService::updateSyncedMarker(const marker::marker_t marker)
 {
 	sqlite3_stmt* statement;
-	int rc = sqlite3_prepare(m_database, "UPDATE marker SET oid = ?, frequency = ?, name = ? , type = ? , modulation = ? , country = ? , location = ? , comment = ? , score = ? , vote = ? WHERE cid = ?;", -1, &statement, 0);
+	int rc = sqlite3_prepare(m_database, "UPDATE marker SET oid = ?, frequency = ?, name = ? , type = ? , modulation = ? , country = ? , location = ? , comment = ? , score = ? , vote = ?, tune_modulation = ?, tune_bandwidth = ?, tune_centered = ?  WHERE cid = ?;", -1, &statement, 0);
 	if (rc == SQLITE_OK)
 	{
-		sqlite3_bind_int(statement, 2, marker.oid);
-		sqlite3_bind_int(statement, 3, marker.frequency);
-		sqlite3_bind_text(statement, 4, marker.name.c_str(), marker.name.size(), NULL);
-		sqlite3_bind_int(statement, 5, marker.type);
-		sqlite3_bind_text(statement, 6, marker.modulation.c_str(), marker.name.size(), NULL);
-		sqlite3_bind_text(statement, 7, marker.country.c_str(), marker.country.size(), NULL);
-		sqlite3_bind_text(statement, 8, marker.location.c_str(), marker.location.size(), NULL);
-		sqlite3_bind_text(statement, 9, marker.comment.c_str(), marker.comment.size(), NULL);
-		sqlite3_bind_int(statement, 10, marker.score);
-		sqlite3_bind_int(statement, 11, marker.vote);
-		sqlite3_bind_int(statement, 12, marker.cid);
+		sqlite3_bind_int(statement, 1, marker.oid);
+		sqlite3_bind_int64(statement, 2, marker.frequency);
+		sqlite3_bind_text(statement, 3, marker.name.c_str(), marker.name.size(), NULL);
+		sqlite3_bind_int(statement, 4, marker.type);
+		sqlite3_bind_text(statement, 5, marker.modulation.c_str(), marker.name.size(), NULL);
+		sqlite3_bind_text(statement, 6, marker.country.c_str(), marker.country.size(), NULL);
+		sqlite3_bind_text(statement, 7, marker.location.c_str(), marker.location.size(), NULL);
+		sqlite3_bind_text(statement, 8, marker.comment.c_str(), marker.comment.size(), NULL);
+		sqlite3_bind_int(statement, 9, marker.score);
+		sqlite3_bind_int(statement, 10, marker.vote);
+		// -- Version 2
+		sqlite3_bind_int(statement, 11, marker.tune_modulation);
+		sqlite3_bind_int(statement, 12, marker.tune_bandwidth);
+		sqlite3_bind_int(statement, 13, marker.tune_centered ? 1 : 0);
+		// --
+		sqlite3_bind_int(statement, 14, marker.cid);
 
 		sqlite3_step(statement);
 		sqlite3_finalize(statement);
@@ -487,7 +558,7 @@ void DataService::SyncMarkers(std::function<void(bool download, int progress) > 
 			if (item.action == "DELETE")
 				deleteMarker(item.marker);
 
-			if (item.action == "INSERT" && item.marker.oid != m_oid)
+			if (item.action == "INSERT" && (lastCommit == 0 || item.marker.oid != m_oid))
 				insertSyncedMarker(item.marker);
 
 			if (item.action == "UPDATE")
@@ -571,6 +642,17 @@ void DataService::SetTypeSettings(settings::types_t types)
 	m_dataChangedCallback();
 }
 
+int DataService::GetDblClickSetting()
+{
+	return m_dblClickSetting;
+}
+
+void DataService::SetDblClickSetting(int mode)
+{
+	m_dblClickSetting = mode;
+	setConfigInt("DblClickMode", mode);
+}
+
 void DataService::SaveWindowPos(channel_t channel, nana::point point)
 {
 	setConfigInt("Window" + std::to_string(channel) + "PosX", point.x);
@@ -589,7 +671,7 @@ int DataService::GetVfoOffset() {
 }
 
 void DataService::SetVfoOffset(int offset) {
-	if (offset >= 10 && offset <= 500) {
+	if (offset >= 10 && offset <= 5000) {
 		m_vfoOffset = offset;
 		setConfigInt("VfoOffset", offset);
 		m_dataChangedCallback();
@@ -619,3 +701,34 @@ void DataService::SetQTH(std::string qth)
 	}
 }
 
+void DataService::Tune(channel_t channel, marker::marker_t marker)
+{
+	auto frequency = marker.frequency;
+
+	if (marker.tune_modulation > 0 && marker.tune_modulation < 14){
+
+		int mapping[] = { 0,1,7,8,9,3,4,5,6,7,8,9,10,11 };
+
+		auto demodulator = static_cast<IUnoPluginController::DemodulatorType>(mapping[marker.tune_modulation]);
+		m_controller.SetDemodulatorType(channel, IUnoPluginController::DemodulatorType::DemodulatorNone);
+
+		if ((marker.tune_modulation >= 2) && (marker.tune_modulation <= 4)) // SAM
+			m_controller.SetDemodulatorType(channel, IUnoPluginController::DemodulatorType::DemodulatorSAM);
+		
+		m_controller.SetDemodulatorType(channel, demodulator);
+
+		if (marker.tune_bandwidth > 0) {
+			m_controller.SetFilterBandwidth(channel, marker.tune_bandwidth);
+		}
+
+		if (marker.tune_centered) {
+			if (marker.tune_modulation == 10) // LSB
+				frequency += marker.tune_bandwidth / 2;
+			if (marker.tune_modulation == 11 || marker.tune_modulation == 13) // USB + Digital
+				frequency -= marker.tune_bandwidth / 2;
+ 		}
+
+	}
+
+	m_controller.SetVfoFrequency(channel, frequency);
+}
