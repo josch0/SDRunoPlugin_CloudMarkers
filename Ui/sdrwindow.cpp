@@ -255,6 +255,15 @@ std::unique_ptr<nana::checkbox> sdrwindow::makeRadio(int x, int y, int w, int h,
 	return radio;
 }
 
+std::unique_ptr<nana::checkbox> sdrwindow::makeCheckbox(int x, int y, int w, int h, std::string caption)
+{
+	auto checkbox = std::unique_ptr<nana::checkbox>(new nana::checkbox(*m_form, nana::rectangle(x, y, w, h)));
+	checkbox->caption(caption);
+	checkbox->transparent(true);
+	checkbox->fgcolor(nana::colors::white);
+	return checkbox;
+}
+
 std::unique_ptr<nana::radio_group> sdrwindow::makeRadioGroup()
 {
 	return std::unique_ptr<nana::radio_group>(new nana::radio_group);

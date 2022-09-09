@@ -10,7 +10,7 @@
 #endif // CLOUDMARKER_PROD
 
 namespace version {
-	const std::string const version = "0.2.0";
+	const std::string const version = "0.3.0";
 }
 
 namespace settings {
@@ -92,11 +92,14 @@ namespace marker {
 		bool synced;
 		std::string flags;
 		std::string flagsl;
+		int tune_modulation;
+		int tune_bandwidth;
+		bool tune_centered;
 	};
 
 	inline bool operator<(const marker_t& lhs, const marker_t& rhs)
 	{
-		return lhs.lid < rhs.lid;
+		return lhs.frequency < rhs.frequency || (lhs.frequency == rhs.frequency && lhs.lid < rhs.lid);
 	}
 
 	inline std::string format_frequency(long long frequency) {

@@ -39,6 +39,7 @@ void CountryWindow::createWidgets()
 	// Search
 	m_lblSearchC = makeLabelTitle(LEFT, ROW(1), FULLWIDTH, "COUNTRY NAME");
 	m_txtSearch = makeTextbox(LEFT, TEXTROW(1), FULLWIDTH, TEXTHEIGHT, false, "Start typing country name ...");
+	m_txtSearch->focus();
 
 	// Results
 	m_lblResultsC = makeLabelTitle(LEFT, ROW(2), FULLWIDTH, "RESULTS");

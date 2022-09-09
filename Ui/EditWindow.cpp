@@ -10,7 +10,9 @@
 #define TEXTHEIGHT (24)
 #define FULLWIDTH (WIDTH - 40)
 #define HALFWIDTH (FULLWIDTH / 2 - 6)
+#define QUARTERWIDTH (HALFWIDTH / 2 - 6)
 #define LEFT (20)
+#define LEFT2 (20 + QUARTERWIDTH + 12)
 #define RIGHT (WIDTH / 2 + 6)
 #define ROW(x) (40 + ((x - 1) * 45))
 #define TEXTROW(x) (52 + ((x - 1) * 45))
@@ -63,9 +65,12 @@ void EditWindow::createWidgets()
 	}
 	m_cmbType->option(m_marker.type);
 
+	API::tabstop(m_cmbType->handle());
+
+
 	// Modulation
-	m_lblModulationC = makeLabelTitle(LEFT, ROW(4), HALFWIDTH, "MODULATION (optional)");
-	m_txtModulation = makeTextbox(LEFT, TEXTROW(4), HALFWIDTH, TEXTHEIGHT, false, "Modulation/protocol ...");
+	m_lblModulationC = makeLabelTitle(LEFT, ROW(4), HALFWIDTH, "MODE / PROTOCOL (optional)");
+	m_txtModulation = makeTextbox(LEFT, TEXTROW(4), HALFWIDTH, TEXTHEIGHT, false, "Mode/protocol ...");
 	m_txtModulation->caption(m_marker.modulation);
 	m_txtModulation->set_accept([&](wchar_t key) {
 		return m_txtModulation->caption().size() < 25 || key == 0x7F || key == 0x08;
@@ -101,10 +106,39 @@ void EditWindow::createWidgets()
 
 	// ### FULL WIDTH
 
+	// Tuning params
+	m_lblTuneC = makeLabelTitle(LEFT, ROW(7), FULLWIDTH, "TUNING PARAMETERS (optional)");
+	m_cmbTuneMod = makeCombox(LEFT, TEXTROW(7), QUARTERWIDTH, TEXTHEIGHT);
+	m_cmbTuneMod->push_back("None");
+	m_cmbTuneMod->push_back("AM");
+	m_cmbTuneMod->push_back("SAM / DSB");
+	m_cmbTuneMod->push_back("SAM / LSB");
+	m_cmbTuneMod->push_back("SAM / USB");
+	m_cmbTuneMod->push_back("NFM");
+	m_cmbTuneMod->push_back("MFM");
+	m_cmbTuneMod->push_back("WFM");
+	m_cmbTuneMod->push_back("SWFM");
+	m_cmbTuneMod->push_back("DSB");
+	m_cmbTuneMod->push_back("LSB");
+	m_cmbTuneMod->push_back("USB");
+	m_cmbTuneMod->push_back("CW");
+	m_cmbTuneMod->push_back("Digital");
+	m_cmbTuneMod->option(0);
+
+	m_cmbTuneBw = makeCombox(LEFT2, TEXTROW(7), QUARTERWIDTH, TEXTHEIGHT);
+	m_cmbTuneBw->enabled(false);
+	m_cmbTuneBw->push_back("None");
+	m_cmbTuneBw->option(0);
+
+	m_chkTuneCenter = makeCheckbox(RIGHT, TEXTROW(7) + 5, HALFWIDTH, 20, "Center marker within bandwidth");
+	m_chkTuneCenter->enabled(false);
+	m_chkTuneCenter->check(false);
+
+
 	// Cloud sync
-	m_lblSharedC = makeLabelTitle(LEFT, ROW(7), HALFWIDTH, "CLOUD SYNC");
-	m_chkShared = makeRadio(LEFT, TEXTROW(7) + 5, FULLWIDTH, 30, "Shared marker\r\nAre synced with the central server and can be used by other users of the plugin.");
-	m_chkLocal = makeRadio(LEFT, TEXTROW(7) + 40, FULLWIDTH, 30, "Local marker\r\nAre stored in a local database and are only visible for you.");
+	m_lblSharedC = makeLabelTitle(LEFT, ROW(8), HALFWIDTH, "CLOUD SYNC");
+	m_chkShared = makeRadio(LEFT, TEXTROW(8) + 3, FULLWIDTH, 20, "Shared marker - are synced with the central server and can be used by other users of the plugin.");
+	m_chkLocal = makeRadio(LEFT, TEXTROW(8) + 23, FULLWIDTH, 20, "Local marker - are stored in a local database and are only visible for you.");
 
 	m_grpSync = makeRadioGroup();
 	m_grpSync->add(*m_chkShared);
@@ -120,7 +154,15 @@ void EditWindow::createWidgets()
 	m_btnSpot = makeButton(RIGHT, 430, "SPOTTED", "Add comment");
 	m_btnDel = makeButton(FULLWIDTH + 20 - 54, 430, "DEL", "Delete marker");
 	
+	// Set values
+	updateTuning(m_marker.tune_modulation, true);
+
 	// Events
+	m_cmbTuneMod->events().selected([&] {
+		updateTuning(m_cmbTuneMod->option(), false);
+	});
+
+
 	m_btnSpot->events().click([&] {
 		auto qth = m_dataService.GetQTH();
 		if (qth.empty()) {
@@ -242,6 +284,21 @@ void EditWindow::createWidgets()
 		m_marker.country = m_txtCountry->caption();
 		m_marker.location = m_txtLocation->caption();
 		m_marker.comment = m_txtComment->caption();
+		m_marker.tune_modulation = m_cmbTuneMod->option();
+		m_marker.tune_centered = m_chkTuneCenter->checked();
+		m_marker.tune_bandwidth = 0;
+
+		
+		if (m_cmbTuneMod->option() != 0)
+		{
+			std::string bandwidth = m_cmbTuneBw->text(m_cmbTuneBw->option());
+			if (!bandwidth.empty() && bandwidth != "None") {
+				size_t pos = bandwidth.find(" ");
+				m_marker.tune_bandwidth = std::stoi(bandwidth.substr(0, pos));
+				if (bandwidth[pos + 1] == 'k') // kHz
+					m_marker.tune_bandwidth *= 1000;
+			}
+		}
 
 		m_dataService.SaveMarker(m_marker, m_chkShared->checked());
 
@@ -306,4 +363,102 @@ std::string EditWindow::spotted(std::string qth, std::string note)
 	std::stringstream stream;
 	stream << "## SPOTTED " << std::uppercase << buf << "@" << qth << "\r\n" << note;
 	return stream.str();	
+}
+
+
+void EditWindow::updateTuning(int modulation, bool actual)
+{
+	m_cmbTuneBw->clear();
+	m_cmbTuneBw->enabled(true);
+	m_chkTuneCenter->enabled(false);
+	switch (modulation) {
+	case 0: // None		
+		m_cmbTuneBw->enabled(false);
+		m_cmbTuneBw->push_back("None");
+		m_chkTuneCenter->check(false);
+		break;
+	case 1: // AM
+	case 2: // SAM / DSB
+		m_cmbTuneBw->push_back("6000 Hz");
+		m_cmbTuneBw->push_back("8000 Hz");
+		m_cmbTuneBw->push_back("11 kHz");
+		m_cmbTuneBw->push_back("20 kHz");
+		m_chkTuneCenter->check(true);
+		break;
+	case 3: // SAM / LSB
+	case 4: // SAM / USB
+		m_cmbTuneBw->push_back("2600 Hz");
+		m_cmbTuneBw->push_back("3000 Hz");
+		m_cmbTuneBw->push_back("4000 Hz");
+		m_cmbTuneBw->push_back("5500 Hz");
+		m_chkTuneCenter->check(true);
+		break;
+	case 5: // NFM
+		m_cmbTuneBw->push_back("10 kHz");
+		m_cmbTuneBw->push_back("12 kHz");
+		m_cmbTuneBw->push_back("15 kHz");
+		m_cmbTuneBw->push_back("20 kHz");
+		m_chkTuneCenter->check(true);
+		break;
+	case 6: // MFM
+		m_cmbTuneBw->push_back("30 kHz");
+		m_cmbTuneBw->push_back("36 kHz");
+		m_cmbTuneBw->push_back("38 kHz");
+		m_cmbTuneBw->push_back("48 kHz");
+		m_chkTuneCenter->check(true);
+		break;
+	case 7: // WFM
+	case 8: // SWFM
+		m_cmbTuneBw->push_back("60 kHz");
+		m_cmbTuneBw->push_back("80 kHz");
+		m_cmbTuneBw->push_back("120 kHz");
+		m_cmbTuneBw->push_back("192 kHz");
+		m_chkTuneCenter->check(true);
+		break;
+	case 9: // DSB
+		m_cmbTuneBw->push_back("4000 Hz");
+		m_cmbTuneBw->push_back("4400 Hz");
+		m_cmbTuneBw->push_back("4800 Hz");
+		m_cmbTuneBw->push_back("5400 Hz");
+		m_chkTuneCenter->check(true);
+		break;
+	case 10: // LSB
+	case 11: // USB
+		m_cmbTuneBw->push_back("1800 Hz");
+		m_cmbTuneBw->push_back("2200 Hz");
+		m_cmbTuneBw->push_back("2800 Hz");
+		m_cmbTuneBw->push_back("3000 Hz");
+		m_chkTuneCenter->enabled(true);
+		m_chkTuneCenter->check(false);
+		break;
+	case 12: // CW
+		m_cmbTuneBw->push_back("150 Hz");
+		m_cmbTuneBw->push_back("250 Hz");
+		m_cmbTuneBw->push_back("500 Hz");
+		m_cmbTuneBw->push_back("750 Hz");
+		m_chkTuneCenter->check(true);
+		break;
+	case 13: // Digital
+		m_cmbTuneBw->push_back("4000 Hz");
+		m_cmbTuneBw->push_back("6000 Hz");
+		m_cmbTuneBw->push_back("12 kHz");
+		m_cmbTuneBw->push_back("24 kHz");
+		m_chkTuneCenter->enabled(true);
+		m_chkTuneCenter->check(true);
+		break;
+	}
+	m_cmbTuneBw->option(0);
+
+	if (actual) {
+		m_cmbTuneMod->option(modulation);
+		m_chkTuneCenter->check(m_marker.tune_centered);
+
+		std::string bw = (m_marker.tune_bandwidth >= 10000) ? std::to_string(m_marker.tune_bandwidth / 1000) + " kHz" : std::to_string(m_marker.tune_bandwidth) + " Hz";
+		for (int i = 0; i < m_cmbTuneBw->the_number_of_options(); i++) {
+			if (m_cmbTuneBw->text(i) == bw) {
+				m_cmbTuneBw->option(i);
+				break;
+			}
+		}
+	}
 }

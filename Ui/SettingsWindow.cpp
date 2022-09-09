@@ -55,11 +55,19 @@ void SettingsWindow::createWidgets()
 	// VFO Offset
 	m_lblOffset = makeLabelTitle(q1, r3, qw, "MARKER VFO OFFSET (kHz)");
 	m_spnOffset = makeSpinbox(q1, r3t, qw, 20);
-	m_spnOffset->range(10, 500, 10);
+	m_spnOffset->range(10, 5000, 10);
 
 	// QTH
 	m_lblQthC = makeLabelTitle(q2, r3, qw, "QTH LOCATOR");
 	m_txtQth0 = makeTextbox(q2, r3t, qw, 20, false, "Maidenhead Loc.");
+
+	// DblClick Mode
+	m_lblDblClickModeC = makeLabelTitle(q3, r3, qw, "DOUBLECLICK LIST");
+	m_cmbDblClickMode = makeCombox(q3, r3t, qw, 20);
+	m_cmbDblClickMode->push_back("Edit marker");
+	m_cmbDblClickMode->push_back("Tune to marker");
+
+	// ### END
 
 	// Validation
 	m_txtColor0->set_accept([&](wchar_t key) {	return validColorKey(m_txtColor0->caption().size(), key);});
@@ -86,9 +94,25 @@ void SettingsWindow::createWidgets()
 	m_spnOffset->value(std::to_string(m_dataService.GetVfoOffset()));
 	m_txtQth0->caption(m_dataService.GetQTH());
 
+	m_cmbDblClickMode->option(m_dataService.GetDblClickSetting());
+
 	// ### BUTTONS
 	m_btnSave = makeButton(20, 430, "SAVE", "Save Marker");
 	m_btnCancel = makeButton(84, 430, "CANCEL", "Cancel editing");
+	m_btnResync = makeButton(contentWidth - 34, 430, "RESYNC", "Reset Sync-Status with cloud.");
+
+	// Events
+
+	m_btnResync->events().click([&] {
+		nana::msgbox msgbox(*m_form, "Resync shared marker", msgbox::yes_no);
+		msgbox << "This deletes all synced markers from your local database (your local markers will remain) and the sync status will be resetted. After this you have a clean database and can start a new SYNC from the main window.";
+		msgbox.icon(msgbox::icon_question);
+		if (msgbox() == msgbox::pick_no)
+			return;
+		
+		m_dataService.ReSync();
+		Close();
+	});
 
 	m_btnSave->events().click([&] {
 		if (!m_types[0].hex_color(m_txtColor0->caption())) {
@@ -133,6 +157,7 @@ void SettingsWindow::createWidgets()
 		}
 
 		// Save
+		m_dataService.SetDblClickSetting(m_cmbDblClickMode->option());
 		m_dataService.SetTypeSettings(m_types);
 		m_dataService.SetVfoOffset(std::stoi(m_spnOffset->value()));
 		m_dataService.SetQTH(m_txtQth0->caption());

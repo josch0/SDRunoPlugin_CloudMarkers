@@ -54,6 +54,7 @@ protected:
 	std::unique_ptr<nana::label> makeLabelTitle(int x, int y, int w, std::string caption);
 	std::unique_ptr<nana::textbox> makeTextbox(int x, int y, int w, int h, bool multiline, std::string placeholder);
 	std::unique_ptr<nana::combox> makeCombox(int x, int y, int w, int h);
+	std::unique_ptr<nana::checkbox> makeCheckbox(int x, int y, int w, int h, std::string caption);
 	std::unique_ptr<nana::checkbox> makeRadio(int x, int y, int w, int h, std::string caption);
 	std::unique_ptr<nana::radio_group> makeRadioGroup();
 	std::unique_ptr<nana::sdrbutton> makeButton(int x, int y, int w, std::string caption, std::string tooltip);

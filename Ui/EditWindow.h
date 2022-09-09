@@ -22,6 +22,8 @@ private:
 	void createWidgets();
 	std::string spotted(std::string qth, std::string note);
 
+	void updateTuning(int modulation, bool actual);
+
 	std::unique_ptr<nana::label> m_lblFreqC;
 	std::unique_ptr<nana::label> m_lblNameC;
 	std::unique_ptr<nana::label> m_lblTypeC;
@@ -58,6 +60,11 @@ private:
 
 	std::unique_ptr<nana::sdrbutton> m_btnSearch;
 	std::unique_ptr<nana::sdrbutton> m_btnSpot;
+
+	std::unique_ptr<nana::label> m_lblTuneC;
+	std::unique_ptr<nana::combox> m_cmbTuneMod;
+	std::unique_ptr<nana::combox> m_cmbTuneBw;
+	std::unique_ptr<nana::checkbox> m_chkTuneCenter;
 
 	std::unique_ptr<nana::sdrbutton> m_btnSave;
 	std::unique_ptr<nana::sdrbutton> m_btnCancel;
