@@ -45,7 +45,7 @@ void MainWindow::createWidgets()
 	m_lblUrl->transparent(true);
 	m_lblUrl->typeface(m_fontTitle);
 	m_lblUrl->fgcolor(color_rgb(0xAAAAAA));
-	m_lblUrl->caption("WWW.MARKERS.CLOUD V"+ version::version);
+	m_lblUrl->caption("CloudMarkers V"+ version::version);
 
 	m_lblFreq = new label(*m_form, rectangle(150, 40, m_width - 170, 20));
 	m_lblFreq->transparent(true);
@@ -268,7 +268,7 @@ void MainWindow::createWidgets()
 
 	if (m_dataService.UpdateAvailable()) {
 		msgbox msgbox(*m_form, "CloudMarkers Plugin");
-		msgbox << "A new version of this plugin is available!" << std::endl << "Please update from http://markers.cloud!";
+		msgbox << "A new version of this plugin is available!" << std::endl << "Please update!";
 		msgbox.icon(msgbox::icon_information);
 		msgbox();
 	}
